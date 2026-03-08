@@ -96,5 +96,36 @@
   </main>
   
   <script type="module" src="./src/js/index.js"></script>
+  <!-- Add this just before the closing </body> tag, after the <main> block -->
+
+<footer style="
+  margin-top: 2rem;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  background-color: hsl(256, 67%, 59%);
+  border-radius: 0.625rem;
+  width: min(90%, 75rem);
+  margin-inline: auto;
+">
+  <p style="color: white; font-family: 'DM Sans', sans-serif; font-size: 1rem; margin-bottom: 0.5rem; opacity: 0.85; letter-spacing: 0.5px;">
+    📬 Liên hệ với chúng tôi / Contact us
+  </p>
+  <a 
+    href="mailto:fladermouse279@gmail.com" 
+    style="
+      color: hsl(39, 100%, 71%); 
+      font-family: 'DM Sans', sans-serif; 
+      font-size: 1.1rem; 
+      font-weight: 500;
+      text-decoration: none;
+      letter-spacing: -0.5px;
+      transition: opacity 0.2s ease;
+    "
+    onmouseover="this.style.opacity='0.75'"
+    onmouseout="this.style.opacity='1'"
+  >
+    fladermouse279@gmail.com
+  </a>
+</footer>
 </body>
 </html>
