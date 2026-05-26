@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Local tools & compiler files
+.gemini/
+*.log
+pdf_full_text.txt
+pdf_pages_sample.txt
+column_group_output.txt
+unmatched_files.txt
+idioms_by_module.json
+matched_assets.json
+compile_app_data.js
+compile_ipa.js
+extract_pages.js
+data.js
+read_logs.js
+package-lock.json
+package.json
+
+# Scratch files
+scratch/
+en_UK.txt
+
+# Unrelated files
+family/
+*.pdf
+*.mobi
+
+# Allow book.pdf specifically if they want to override, but for now we ignore pdfs to prevent pushing the 117MB files.
+# Large files (GitHub 100MB limit bypass)
+# book.pdf is ignored by *.pdf above
+
+# OS junk
+.DS_Store
+Thumbs.db

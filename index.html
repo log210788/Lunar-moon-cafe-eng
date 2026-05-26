@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English Idioms Companion - Interactive Language Study App</title>
+    <meta name="description" content="An interactive study companion for English Idioms. Render and study original textbook pages side-by-side with clickable audio overlays, flashcards, matches, and quizzes.">
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Caveat:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=idioms-1.0">
+    
+
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar: Navigation & Unit Selection -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="brand">
+                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <h1>Idioms Companion</h1>
+                </div>
+                <button class="mobile-close" id="mobileCloseBtn" aria-label="Close menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Search System -->
+            <div class="search-box">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="unitSearchInput" placeholder="Search units or idioms...">
+            </div>
+
+            <!-- Progress Summary Card -->
+            <div class="progress-card">
+                <div class="progress-info">
+                    <span>Overall Progress</span>
+                    <span id="progressText">0 / 54 Units</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <!-- View PDF Book Link -->
+            <div class="pdf-link-container" style="margin: 0 20px 20px 20px;">
+                <a href="book.pdf" target="_blank" class="btn btn-secondary btn-full" style="gap: 8px; justify-content: center; font-size: 13px; padding: 10px; text-decoration: none; color: var(--text-primary);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="color: var(--accent-cyan);">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <span>Open PDF Textbook</span>
+                </a>
+            </div>
+
+            <!-- Unit List -->
+            <nav class="unit-list" id="unitListContainer">
+                <div class="list-skeleton">
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content Panel -->
+        <main class="main-content">
+            <!-- Top Navbar -->
+            <header class="top-nav">
+                <button class="mobile-toggle" id="mobileToggleBtn" aria-label="Open menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="active-unit-header">
+                    <span id="activeUnitNumber" class="unit-badge">Unit --</span>
+                    <h2 id="activeUnitTitle">Select a Unit to Start</h2>
+                </div>
+                
+                <!-- Speed Control & Sound Controls -->
+                <div class="global-audio-controls">
+                    <div class="speed-control">
+                        <label for="speedSelect">Speed:</label>
+                        <select id="speedSelect">
+                            <option value="0.8">0.8x (Slow)</option>
+                            <option value="1.0" selected>1.0x (Normal)</option>
+                            <option value="1.2">1.2x (Fast)</option>
+                        </select>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Mode Selector Tabs -->
+            <div class="tabs-container">
+                <nav class="tabs" role="tablist">
+                    <button class="tab-btn active" data-tab="book" role="tab" aria-selected="true" id="tab-book">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tab-icon">
+                            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                        </svg>
+                        <span>Interactive Book</span>
+                    </button>
+                    <button class="tab-btn" data-tab="study" role="tab" aria-selected="false" id="tab-study">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tab-icon">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                        </svg>
+                        <span>Vocabulary List</span>
+                    </button>
+                    <button class="tab-btn" data-tab="flashcards" role="tab" aria-selected="false" id="tab-flashcards">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tab-icon">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="9" y1="3" x2="9" y2="21"></line>
+                        </svg>
+                        <span>Flashcards</span>
+                    </button>
+                    <button class="tab-btn" data-tab="match" role="tab" aria-selected="false" id="tab-match">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tab-icon">
+                            <path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1"></path>
+                            <rect x="8" y="2" width="13" height="13" rx="2"></rect>
+                        </svg>
+                        <span>Match Game</span>
+                    </button>
+                    <button class="tab-btn" data-tab="listening" role="tab" aria-selected="false" id="tab-listening">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tab-icon">
+                            <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+                            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
+                        </svg>
+                        <span>Dictation Quiz</span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Main Tab View Content -->
+            <div class="view-content">
+                <!-- VIEW 0: INTERACTIVE BOOK (DEFAULT) -->
+                <section class="tab-panel active" id="panel-book" role="tabpanel">
+                    <div class="book-controls-bar">
+                        <div class="spread-toggle-group">
+                            <button class="btn btn-secondary active" id="toggleLessonSpreadBtn">Lesson Spread</button>
+                            <button class="btn btn-secondary" id="toggleExercisesSpreadBtn">Practice Exercises</button>
+                            <button class="btn btn-secondary" id="toggleAnswerSheetBtn" style="display: none; gap: 6px; align-items: center;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                                <span>Type Answers</span>
+                            </button>
+                        </div>
+                        <div class="book-page-info" id="bookPageInfo">
+                            <span class="book-hint-badge">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                Click any idiom row to hear it
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="whiteboard-toolbar">
+                        <div class="toolbar-section">
+                            <span class="toolbar-label">Whiteboard:</span>
+                            <button class="tool-btn active" id="tool-pen" title="Pen">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                    <path d="M12 20h9"></path>
+                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                                </svg>
+                            </button>
+                            <button class="tool-btn" id="tool-eraser" title="Eraser">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                    <path d="M20 20H7L3 16c-1-1-1-3 0-4l9-9c1-1 3-1 4 0l4 4c1 1 1 3 0 4L20 20z"></path>
+                                    <line x1="22" y1="20" x2="12" y2="20"></line>
+                                </svg>
+                            </button>
+                            <button class="tool-btn" id="tool-text" title="Type on Page">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14">
+                                    <polyline points="4 7 4 4 20 4 20 7"></polyline>
+                                    <line x1="9" y1="20" x2="15" y2="20"></line>
+                                    <line x1="12" y1="4" x2="12" y2="20"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="toolbar-divider"></div>
+                        <div class="toolbar-section">
+                            <span class="toolbar-label">Color:</span>
+                            <button class="color-dot active" id="color-cyan" data-color="#06b6d4" style="background-color: #06b6d4;"></button>
+                            <button class="color-dot" id="color-magenta" data-color="#ec4899" style="background-color: #ec4899;"></button>
+                            <button class="color-dot" id="color-gold" data-color="#f59e0b" style="background-color: #f59e0b;"></button>
+                            <button class="color-dot" id="color-purple" data-color="#8b5cf6" style="background-color: #8b5cf6;"></button>
+                            <button class="color-dot" id="color-dark" data-color="#1e293b" style="background-color: #1e293b;"></button>
+                        </div>
+                        <div class="toolbar-divider"></div>
+                        <div class="toolbar-section">
+                            <span class="toolbar-label">Size:</span>
+                            <button class="size-btn active" id="size-thin" data-size="2">Thin</button>
+                            <button class="size-btn" id="size-medium" data-size="5">Medium</button>
+                            <button class="size-btn" id="size-thick" data-size="10">Thick</button>
+                        </div>
+                        <div class="toolbar-divider"></div>
+                        <button class="btn btn-small btn-danger" id="clearCanvasBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                            Clear Writing
+                        </button>
+                    </div>
+                    
+                    <div class="book-viewport-container">
+                        <div class="book-spread-viewport" id="bookSpreadViewport">
+                            <!-- Left Page -->
+                            <div class="textbook-page" id="textbookPageLeft">
+                                <div class="page-image-container" id="pageImageContainerLeft">
+                                    <img class="page-img" id="pageImgLeft" src="" alt="Left Page" draggable="false">
+                                    <div class="hotspots-overlay" id="hotspotsOverlayLeft"></div>
+                                    <div class="text-annotations-layer" id="textAnnotationsLayerLeft" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 12;"></div>
+                                    <canvas class="drawing-canvas" id="drawingCanvasLeft"></canvas>
+                                </div>
+                                <div class="page-footer" style="display: none;">
+                                    <span class="page-num" id="pageNumLeft"></span>
+                                    <span class="page-unit-num" id="pageUnitNumLeft"></span>
+                                    <h2 class="page-unit-title" id="pageUnitTitleLeft"></h2>
+                                    <div class="page-body" id="pageBodyLeft"></div>
+                                </div>
+                            </div>
+                            <!-- Right Page -->
+                            <div class="textbook-page" id="textbookPageRight">
+                                <div class="page-image-container" id="pageImageContainerRight">
+                                    <img class="page-img" id="pageImgRight" src="" alt="Right Page" draggable="false">
+                                    <div class="hotspots-overlay" id="hotspotsOverlayRight"></div>
+                                    <div class="text-annotations-layer" id="textAnnotationsLayerRight" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 12;"></div>
+                                    <canvas class="drawing-canvas" id="drawingCanvasRight"></canvas>
+                                </div>
+                                <div class="page-footer" style="display: none;">
+                                    <span class="page-num" id="pageNumRight"></span>
+                                    <span class="page-unit-num" id="pageUnitNumRight"></span>
+                                    <h2 class="page-unit-title" id="pageUnitTitleRight"></h2>
+                                    <div class="page-body" id="pageBodyRight"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Collapsible Exercise Answer Sheet -->
+                        <div class="exercise-answer-sheet" id="exerciseAnswerSheet">
+                            <div class="sheet-header">
+                                <h3>Answer Sheet</h3>
+                                <button class="sheet-close-btn" id="closeAnswerSheetBtn" aria-label="Close Answer Sheet">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="sheet-body" id="answerSheetBody">
+                                <!-- Dynamic input fields based on unit idioms -->
+                            </div>
+                            <div class="sheet-footer">
+                                <div class="sheet-score-summary" id="sheetScoreSummary" style="display: none;">
+                                    <span class="sheet-score-label">Score:</span>
+                                    <span class="sheet-score-val" id="sheetScoreValue">0 / 0 correct</span>
+                                </div>
+                                <button class="btn btn-primary btn-full" id="checkAllAnswersBtn">Check Answers</button>
+                                <button class="btn btn-secondary btn-full" id="revealAllAnswersBtn" style="margin-top: 8px;">Reveal Answers</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 1: STUDY GUIDE -->
+                <section class="tab-panel" id="panel-study" role="tabpanel">
+                    <div class="section-card">
+                        <div class="panel-header">
+                            <h3>Audio Phrasebook</h3>
+                            <p>Browse the vocabulary list for this unit. Click play to listen, or mark them as mastered.</p>
+                        </div>
+                        <div class="idiom-grid" id="idiomGridContainer">
+                            <!-- Dynamically Generated Idiom Cards -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 2: FLASHCARDS -->
+                <section class="tab-panel" id="panel-flashcards" role="tabpanel">
+                    <div class="flashcards-mode-container">
+                        <div class="flashcard-controls">
+                            <button class="control-btn" id="prevCardBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                                <span>Previous</span>
+                            </button>
+                            <span class="card-indicator" id="cardIndicator">Card 0 / 0</span>
+                            <button class="control-btn" id="nextCardBtn">
+                                <span>Next</span>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </button>
+                        </div>
+
+                        <!-- 3D Flippable Card -->
+                        <div class="card-wrapper">
+                            <div class="flashcard" id="flashcard">
+                                <div class="card-face card-front">
+                                    <div class="card-hint">Idiom</div>
+                                    <h4 class="card-idiom-title" id="fcFrontTitle">Idiom Name</h4>
+                                    <div class="card-ipa" id="fcFrontIpa"></div>
+                                    <div class="audio-btn-wrapper">
+                                        <button class="audio-play-btn" id="fcAudioPlayBtn" aria-label="Play Audio">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="play-svg"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                        </button>
+                                    </div>
+                                    <div class="card-action-hint">Click card to reveal definition</div>
+                                </div>
+                                <div class="card-face card-back">
+                                    <div class="card-hint">Definition</div>
+                                    <div class="card-back-content">
+                                        <h5 class="card-back-title" id="fcBackTitle">Idiom Name</h5>
+                                        <p class="card-definition-text" id="fcBackDefinition">Definition text goes here.</p>
+                                    </div>
+                                    <div class="card-action-hint">Click card to return to front</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Complete Action -->
+                        <div class="fc-mastery-actions">
+                            <button class="mastery-btn" id="fcMarkMasteredBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <span>I've Learned This</span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 3: MATCH GAME -->
+                <section class="tab-panel" id="panel-match" role="tabpanel">
+                    <div class="section-card">
+                        <div class="panel-header">
+                            <h3>Definition Match</h3>
+                            <p>Match the idiom cards on the left with their correct definitions on the right. Time is ticking!</p>
+                        </div>
+                        
+                        <div class="match-game-layout">
+                            <div class="match-stats">
+                                <div class="stat-badge">
+                                    <span>Matches:</span>
+                                    <strong id="matchGameScore">0 / 5</strong>
+                                </div>
+                                <div class="stat-badge">
+                                    <span>Time:</span>
+                                    <strong id="matchGameTimer">0.0s</strong>
+                                </div>
+                                <button class="btn btn-secondary" id="restartMatchBtn">Reset Game</button>
+                            </div>
+
+                            <div class="match-arena" id="matchArena">
+                                <div class="match-column" id="matchIdiomsCol">
+                                    <!-- Idiom Cards Shuffled -->
+                                </div>
+                                <div class="match-column" id="matchDefsCol">
+                                    <!-- Definition Cards Shuffled -->
+                                </div>
+                            </div>
+
+                            <!-- Success Modal inside arena -->
+                            <div class="match-success-overlay" id="matchSuccessOverlay" style="display: none;">
+                                <div class="success-card">
+                                    <div class="success-icon">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                    </div>
+                                    <h3>Excellent Match!</h3>
+                                    <p>You completed this puzzle in <span id="finalMatchTime">0.0</span> seconds!</p>
+                                    <button class="btn btn-primary" id="playMatchAgainBtn">Play Again</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 4: LISTENING PRACTICE -->
+                <section class="tab-panel" id="panel-listening" role="tabpanel">
+                    <div class="listening-mode-container">
+                        <!-- Left Panel: Text-book Exercise Audio Desk -->
+                        <div class="section-card flex-1">
+                            <div class="panel-header">
+                                <h3>Textbook Listening Exercises</h3>
+                                <p>Use this panel to play the original audio tracks for the textbook's listening activities. Check your answers in the book's key.</p>
+                            </div>
+                            <div class="listening-exercises-list" id="listeningExercisesList">
+                                <!-- List of tracks (e.g. Exercise 4, Q1, etc) -->
+                                <p class="empty-state">No exercise tracks available for this unit.</p>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Interactive Spelling Dictation -->
+                        <div class="section-card flex-1">
+                            <div class="panel-header">
+                                <h3>Interactive Dictation Test</h3>
+                                <p>Listen to the idiom pronounced and type the correct spelling to verify your listening skills.</p>
+                            </div>
+                            <div class="dictation-arena">
+                                <div class="dictation-console">
+                                    <button class="btn btn-primary play-btn-large" id="dictationPlayBtn" aria-label="Play Dictation Audio">
+                                        <svg viewBox="0 0 24 24" fill="currentColor" class="play-svg-large"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                        <span>Listen to Idiom</span>
+                                    </button>
+                                </div>
+                                <div class="dictation-input-wrapper">
+                                    <input type="text" id="dictationInput" placeholder="Type what you hear..." autocomplete="off">
+                                    <button class="btn btn-accent" id="dictationSubmitBtn">Check</button>
+                                </div>
+                                <div class="dictation-feedback" id="dictationFeedback" style="display: none;">
+                                    <div class="feedback-indicator"></div>
+                                    <p class="feedback-message"></p>
+                                    <p class="feedback-solution" style="display: none;">Correct Idiom: <strong id="dictationSolutionText"></strong></p>
+                                </div>
+                                <div class="dictation-actions">
+                                    <button class="btn btn-secondary" id="dictationNextBtn" style="display: none;">Next Idiom</button>
+                                    <button class="btn btn-secondary" id="dictationRevealBtn">Reveal Answer</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Hidden audio element for global use -->
+    <audio id="globalAudioPlayer"></audio>
+
+    <script src="data.js?v=idioms-1.0"></script>
+    <script src="app.js?v=idioms-1.0"></script>
+</body>
+</html>
