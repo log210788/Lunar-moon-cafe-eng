@@ -458,14 +458,15 @@ function handleRandomLike(user, team) {
 
 // Rose Attack donation (Chooses a Random Enemy Square)
 function handleRandomDamage(amount, attacker, team) {
-    // Filter out target squares belonging to own team
-    const enemySquares = boardState.filter(s => s.team !== team && s.team !== 'neutral');
+    const enemyTeam = team === 'blue' ? 'red' : 'blue';
+    const enemySquares = boardState.filter(s => s.team === enemyTeam);
     
-    // Choose target: random enemy square, or random overall if none exist
-    const targetId = enemySquares.length > 0
-        ? enemySquares[Math.floor(Math.random() * enemySquares.length)].id
-        : Math.floor(Math.random() * boardState.length);
+    if (enemySquares.length === 0) {
+        logActivity(`🌹 <b>${attacker}</b> wanted to Rose attack, but the ${enemyTeam.toUpperCase()} team has no owned squares!`, 'rose');
+        return;
+    }
 
+    const targetId = enemySquares[Math.floor(Math.random() * enemySquares.length)].id;
     const square = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
@@ -835,7 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('actionShield').addEventListener('click', () => {
         initAudio();
         const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
-        handleRandomShield(200, user, currentUserTeam); // boosts shield on random owned square
+        handleRandomShield(500, user, currentUserTeam); // boosts shield on random owned square
     });
 
     // 3. Different Layers of Nukes (All target randomly)
