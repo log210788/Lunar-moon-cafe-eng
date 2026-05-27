@@ -497,6 +497,7 @@ function renderPlayerRoster() {
 
     if (players.length === 0) {
         rosterEl.innerHTML = `<div class="leaderboard-empty" style="font-size: 12px; text-align: center; color: var(--text-muted);">No active players in lobby yet.<br>Send an action to join!</div>`;
+        renderLobbyDocks();
         return;
     }
 
@@ -510,12 +511,21 @@ function renderPlayerRoster() {
 
     rosterEl.innerHTML = players.map(p => {
         const isOnMap = p.squaresCount > 0;
-        const statusText = isOnMap ? `ON MAP (${p.squaresCount})` : 'LOBBY';
-        const badgeClass = isOnMap ? 'on-map' : 'lobby';
+        const isAttacking = p.attacking;
+        
+        let statusText = isOnMap ? `ON MAP (${p.squaresCount})` : 'LOBBY';
+        let badgeClass = isOnMap ? 'on-map' : 'lobby';
+        
+        if (isAttacking) {
+            statusText = 'ATTACKING...';
+            badgeClass = 'attacking';
+        }
+        
         const teamClass = p.team === 'blue' ? 'blue' : 'red';
+        const attackingItemClass = isAttacking ? 'attacking' : '';
 
         return `
-            <div class="roster-item">
+            <div class="roster-item ${attackingItemClass}">
                 <div class="roster-player-info">
                     <img class="roster-avatar ${teamClass}-border" src="${p.avatar}" alt="${p.name}">
                     <span class="roster-name ${teamClass}-text">${p.name}</span>
@@ -524,9 +534,51 @@ function renderPlayerRoster() {
             </div>
         `;
     }).join('');
+
+    renderLobbyDocks();
 }
 
-// Launch flying avatar projectile from team side
+// Render left and right lobby docks for off-board active players
+function renderLobbyDocks() {
+    const blueAvatarsEl = document.getElementById('blueLobbyAvatars');
+    const redAvatarsEl = document.getElementById('redLobbyAvatars');
+    if (!blueAvatarsEl || !redAvatarsEl) return;
+
+    const players = Object.values(activePlayers);
+
+    // Blue off-board players
+    const blueOffBoard = players.filter(p => p.team === 'blue' && p.squaresCount === 0);
+    // Red off-board players
+    const redOffBoard = players.filter(p => p.team === 'red' && p.squaresCount === 0);
+
+    if (blueOffBoard.length === 0) {
+        blueAvatarsEl.innerHTML = `<div class="dock-empty-slot" title="No players in blue lobby">+</div>`;
+    } else {
+        blueAvatarsEl.innerHTML = blueOffBoard.map(p => {
+            const attackingClass = p.attacking ? 'attacking' : '';
+            return `
+                <div class="dock-avatar-item ${attackingClass}" data-username="${p.name}" title="${p.name} (Lobby)">
+                    <img src="${p.avatar}" alt="${p.name}">
+                </div>
+            `;
+        }).join('');
+    }
+
+    if (redOffBoard.length === 0) {
+        redAvatarsEl.innerHTML = `<div class="dock-empty-slot" title="No players in red lobby">+</div>`;
+    } else {
+        redAvatarsEl.innerHTML = redOffBoard.map(p => {
+            const attackingClass = p.attacking ? 'attacking' : '';
+            return `
+                <div class="dock-avatar-item ${attackingClass}" data-username="${p.name}" title="${p.name} (Lobby)">
+                    <img src="${p.avatar}" alt="${p.name}">
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+// Launch flying avatar projectile from team side or from owned square
 function launchProjectile(user, team, targetId, callback) {
     const boardEl = document.getElementById('gridBoard');
     if (!boardEl) {
@@ -540,6 +592,12 @@ function launchProjectile(user, team, targetId, callback) {
         return;
     }
 
+    // Set attacking state to true
+    if (activePlayers[user]) {
+        activePlayers[user].attacking = true;
+        renderPlayerRoster();
+    }
+
     const row = Math.floor(targetId / GRID_SIZE);
     const col = targetId % GRID_SIZE;
 
@@ -547,9 +605,63 @@ function launchProjectile(user, team, targetId, callback) {
     const targetX = col * 82 + (row % 2 === 1 ? 41 : 0) + 40 - 16; // X center minus projectile half-width (16px)
     const targetY = row * 69 + 12 + 46 - 16; // Y center minus projectile half-height (16px)
 
-    // Starting positions based on team
-    const startX = team === 'blue' ? -80 : 620;
-    const startY = 230; // middle height
+    // Starting positions based on whether player is on map or off map
+    let startX, startY;
+    const player = activePlayers[user];
+    const isOnMap = player && player.squaresCount > 0;
+
+    if (isOnMap) {
+        // Find closest owned square
+        const ownedSquares = boardState.filter(s => s.team === team && s.ownerName === user);
+        let sourceTileId = -1;
+        if (ownedSquares.length > 0) {
+            let minDistance = Infinity;
+            const targetCenterX = col * 82 + (row % 2 === 1 ? 41 : 0) + 40;
+            const targetCenterY = row * 69 + 12 + 46;
+            ownedSquares.forEach(s => {
+                const sRow = Math.floor(s.id / GRID_SIZE);
+                const sCol = s.id % GRID_SIZE;
+                const sCenterX = sCol * 82 + (sRow % 2 === 1 ? 41 : 0) + 40;
+                const sCenterY = sRow * 69 + 12 + 46;
+                const dist = Math.hypot(sCenterX - targetCenterX, sCenterY - targetCenterY);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    sourceTileId = s.id;
+                }
+            });
+        }
+
+        if (sourceTileId !== -1) {
+            const sRow = Math.floor(sourceTileId / GRID_SIZE);
+            const sCol = sourceTileId % GRID_SIZE;
+            startX = sCol * 82 + (sRow % 2 === 1 ? 41 : 0) + 40 - 16;
+            startY = sRow * 69 + 12 + 46 - 16;
+        } else {
+            // Fallback to team side
+            startX = team === 'blue' ? -80 : 620;
+            startY = 230;
+        }
+    } else {
+        // Off map: launch from Lobby Dock avatar
+        const boardRect = boardEl.getBoundingClientRect();
+        const avatarEl = document.querySelector(`.dock-avatar-item[data-username="${user}"]`);
+
+        if (avatarEl) {
+            const avatarRect = avatarEl.getBoundingClientRect();
+            startX = avatarRect.left - boardRect.left + avatarRect.width / 2 - 16;
+            startY = avatarRect.top - boardRect.top + avatarRect.height / 2 - 16;
+        } else {
+            const dockEl = document.getElementById(team === 'blue' ? 'blueLobbyDock' : 'redLobbyDock');
+            if (dockEl) {
+                const dockRect = dockEl.getBoundingClientRect();
+                startX = dockRect.left - boardRect.left + dockRect.width / 2 - 16;
+                startY = dockRect.top - boardRect.top + dockRect.height / 2 - 16;
+            } else {
+                startX = team === 'blue' ? -80 : 620;
+                startY = 230;
+            }
+        }
+    }
 
     // Create projectile div
     const projEl = document.createElement('div');
@@ -575,9 +687,14 @@ function launchProjectile(user, team, targetId, callback) {
     // Execute callback and clean up on landing (600ms)
     setTimeout(() => {
         projEl.remove();
+        if (activePlayers[user]) {
+            activePlayers[user].attacking = false;
+            renderPlayerRoster();
+        }
         callback();
     }, 600);
 }
+
 
 // ==========================================================================
 // Gameplay Mechanics Handlers (All Actions are Randomly Target-based)

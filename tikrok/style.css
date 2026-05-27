@@ -1266,3 +1266,222 @@ input:checked + .slider:before {
     background-color: rgba(255, 255, 255, 0.05);
 }
 
+/* Off-Board vs On-Board Docks and Attacking States */
+.arena-layout-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    width: 100%;
+    margin: auto 0;
+}
+
+.lobby-dock {
+    width: 100px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    padding: 16px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(16px);
+    transition: var(--transition);
+    align-self: stretch;
+    justify-content: flex-start;
+    max-height: 480px;
+}
+
+.lobby-dock.blue-dock {
+    border-color: rgba(0, 210, 255, 0.15);
+    box-shadow: 0 10px 30px rgba(0, 210, 255, 0.05), inset 0 0 15px rgba(0, 210, 255, 0.02);
+}
+
+.lobby-dock.red-dock {
+    border-color: rgba(255, 0, 127, 0.15);
+    box-shadow: 0 10px 30px rgba(255, 0, 127, 0.05), inset 0 0 15px rgba(255, 0, 127, 0.02);
+}
+
+.dock-header {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--text-secondary);
+    text-align: center;
+    border-bottom: 1px solid var(--border-glass);
+    padding-bottom: 8px;
+    width: 100%;
+}
+
+.blue-dock .dock-header {
+    color: var(--blue-team);
+    text-shadow: 0 0 8px var(--blue-team-glow);
+}
+
+.red-dock .dock-header {
+    color: var(--red-team);
+    text-shadow: 0 0 8px var(--red-team-glow);
+}
+
+.dock-avatars {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    overflow-y: auto;
+    flex-grow: 1;
+    padding: 4px 0;
+}
+
+/* Hide scrollbar for webkit */
+.dock-avatars::-webkit-scrollbar {
+    display: none;
+}
+
+.dock-avatar-item {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 2px solid var(--neutral-team);
+    background-color: #1f2937;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.25s, box-shadow 0.25s;
+    overflow: hidden;
+}
+
+.blue-dock .dock-avatar-item {
+    border-color: var(--blue-team);
+    box-shadow: 0 0 8px rgba(0, 210, 255, 0.2);
+}
+
+.red-dock .dock-avatar-item {
+    border-color: var(--red-team);
+    box-shadow: 0 0 8px rgba(255, 0, 127, 0.2);
+}
+
+.dock-avatar-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.dock-avatar-item:hover {
+    transform: scale(1.15);
+    z-index: 10;
+}
+
+/* Attacking animation for avatar in dock */
+.dock-avatar-item.attacking {
+    animation: dockAttackingPulse 0.6s infinite alternate ease-in-out;
+}
+
+.blue-dock .dock-avatar-item.attacking {
+    border-color: #ffffff;
+    box-shadow: 0 0 20px rgba(0, 210, 255, 1), 0 0 40px rgba(0, 210, 255, 0.6);
+}
+
+.red-dock .dock-avatar-item.attacking {
+    border-color: #ffffff;
+    box-shadow: 0 0 20px rgba(255, 0, 127, 1), 0 0 40px rgba(255, 0, 127, 0.6);
+}
+
+@keyframes dockAttackingPulse {
+    0% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1.25);
+    }
+}
+
+/* Empty slots styling */
+.dock-empty-slot {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px dashed rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--text-muted);
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.blue-dock .dock-empty-slot:hover {
+    border-color: rgba(0, 210, 255, 0.3);
+    color: rgba(0, 210, 255, 0.5);
+}
+
+.red-dock .dock-empty-slot:hover {
+    border-color: rgba(255, 0, 127, 0.3);
+    color: rgba(255, 0, 127, 0.5);
+}
+
+/* Roster Attacking State Highlights */
+.roster-item.attacking {
+    border-color: #f59e0b;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+    background-color: rgba(245, 158, 11, 0.04);
+}
+
+.roster-status-badge.attacking {
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%) !important;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+    animation: statusFlash 0.5s infinite alternate ease-in-out;
+}
+
+@keyframes statusFlash {
+    0% { opacity: 0.8; transform: scale(0.95); }
+    100% { opacity: 1; transform: scale(1.05); }
+}
+
+/* Media Query Adaptations for Docks on small screen */
+@media (max-width: 1100px) {
+    .arena-layout-row {
+        flex-direction: column;
+        gap: 16px;
+        align-items: center;
+        width: 100%;
+    }
+    
+    .lobby-dock {
+        width: 100%;
+        max-height: 100px;
+        flex-direction: row;
+        padding: 8px 16px;
+        align-self: center;
+    }
+    
+    .dock-header {
+        width: auto;
+        border-bottom: none;
+        border-right: 1px solid var(--border-glass);
+        padding-bottom: 0;
+        padding-right: 12px;
+        white-space: nowrap;
+    }
+    
+    .dock-avatars {
+        flex-direction: row;
+        justify-content: flex-start;
+        overflow-x: auto;
+        overflow-y: hidden;
+        height: auto;
+        padding: 0 8px;
+        gap: 8px;
+    }
+}
+
+

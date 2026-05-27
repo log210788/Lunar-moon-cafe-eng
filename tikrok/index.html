@@ -40,8 +40,26 @@
                 <p>Blue vs Red Team! Likes place random squares. Use shields to block them, and trigger nukes!</p>
             </header>
 
-            <div class="grid-board-wrapper">
-                <div class="grid-board" id="gridBoard"></div>
+            <div class="arena-layout-row">
+                <!-- Left Dock: Blue Lobby -->
+                <div class="lobby-dock blue-dock" id="blueLobbyDock">
+                    <div class="dock-header">BLUE LOBBY</div>
+                    <div class="dock-avatars" id="blueLobbyAvatars">
+                        <div class="dock-empty-slot" title="No players in blue lobby">+</div>
+                    </div>
+                </div>
+
+                <div class="grid-board-wrapper">
+                    <div class="grid-board" id="gridBoard"></div>
+                </div>
+
+                <!-- Right Dock: Red Lobby -->
+                <div class="lobby-dock red-dock" id="redLobbyDock">
+                    <div class="dock-header">RED LOBBY</div>
+                    <div class="dock-avatars" id="redLobbyAvatars">
+                        <div class="dock-empty-slot" title="No players in red lobby">+</div>
+                    </div>
+                </div>
             </div>
 
             <!-- Team Stats Bar -->
