@@ -231,7 +231,7 @@ function renderBoard() {
 
             // Calculate health widths
             const hpPercent = (square.hp / square.maxHp) * 100;
-            const shieldPercent = Math.min(100, (square.shield / 500) * 100);
+            const shieldPercent = square.immune ? (square.immuneTimeLeft / 60) * 100 : Math.min(100, (square.shield / 500) * 100);
 
             let shieldBadgeHtml = '';
             if (square.immune) {
