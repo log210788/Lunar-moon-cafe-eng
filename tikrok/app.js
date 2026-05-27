@@ -374,12 +374,28 @@ function triggerVisualFX(squareId, effect) {
 }
 
 function spawnFloatingText(squareId, text, type = 'damage') {
-    const sqEl = document.getElementById(`square-${squareId}`);
-    if (!sqEl) return;
+    const boardEl = document.getElementById('gridBoard');
+    if (!boardEl) return;
+
+    const square = boardState[squareId];
+    if (!square) return;
+
+    const row = Math.floor(squareId / GRID_SIZE);
+    const col = squareId % GRID_SIZE;
+
+    // Calculate center coordinates of the target hex
+    const left = col * 82 + (row % 2 === 1 ? 41 : 0) + 40; // center X
+    const top = row * 69 + 12 + 46; // center Y
 
     const floatEl = document.createElement('div');
     floatEl.className = `floating-text ${type}`;
     floatEl.textContent = text;
+
+    // Position absolutely relative to the gridBoard container
+    floatEl.style.position = 'absolute';
+    floatEl.style.left = `${left}px`;
+    floatEl.style.top = `${top}px`;
+    floatEl.style.zIndex = '500'; // Make sure it sits on top of all rows
 
     // RPG style random angle and horizontal drift
     const angle = (Math.random() - 0.5) * 36; // -18deg to +18deg
@@ -387,7 +403,7 @@ function spawnFloatingText(squareId, text, type = 'damage') {
     floatEl.style.setProperty('--drift-x', `${drift}px`);
     floatEl.style.setProperty('--rotate-angle', `${angle}deg`);
 
-    sqEl.appendChild(floatEl);
+    boardEl.appendChild(floatEl);
 
     floatEl.addEventListener('animationend', () => {
         floatEl.remove();
@@ -395,13 +411,28 @@ function spawnFloatingText(squareId, text, type = 'damage') {
 }
 
 function spawnParticles(squareId, colorClass) {
-    const sqEl = document.getElementById(`square-${squareId}`);
-    if (!sqEl) return;
+    const boardEl = document.getElementById('gridBoard');
+    if (!boardEl) return;
+
+    const square = boardState[squareId];
+    if (!square) return;
+
+    const row = Math.floor(squareId / GRID_SIZE);
+    const col = squareId % GRID_SIZE;
+
+    // Calculate center coordinates of the target hex
+    const left = col * 82 + (row % 2 === 1 ? 41 : 0) + 40; // center X
+    const top = row * 69 + 12 + 46; // center Y
 
     // Spawn 7 flying particles
     for (let i = 0; i < 7; i++) {
         const particle = document.createElement('div');
         particle.className = `hit-particle ${colorClass}`;
+        
+        particle.style.position = 'absolute';
+        particle.style.left = `${left}px`;
+        particle.style.top = `${top}px`;
+        particle.style.zIndex = '400'; // Sits on top of the hexes
 
         const angle = Math.random() * Math.PI * 2;
         const speed = 15 + Math.random() * 25;
@@ -411,7 +442,7 @@ function spawnParticles(squareId, colorClass) {
         particle.style.setProperty('--dest-x', `${destX}px`);
         particle.style.setProperty('--dest-y', `${destY}px`);
 
-        sqEl.appendChild(particle);
+        boardEl.appendChild(particle);
 
         particle.addEventListener('animationend', () => {
             particle.remove();
