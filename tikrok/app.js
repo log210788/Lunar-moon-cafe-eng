@@ -267,7 +267,7 @@ function renderBoard() {
             });
 
             sqEl.addEventListener('animationend', () => {
-                sqEl.classList.remove('shake', 'takeover-flash', 'under-attack');
+                sqEl.classList.remove('shake', 'takeover-flash', 'under-attack', 'deflected');
             });
 
             boardEl.appendChild(sqEl);
@@ -320,7 +320,7 @@ function triggerVisualFX(squareId, effect) {
     const el = document.getElementById(`square-${squareId}`);
     if (!el) return;
 
-    el.classList.remove('shake', 'takeover-flash', 'under-attack');
+    el.classList.remove('shake', 'takeover-flash', 'under-attack', 'deflected');
     void el.offsetWidth; // Trigger reflow
     el.classList.add(effect);
 }
@@ -404,7 +404,7 @@ function handleRandomLike(user, team) {
     if (target.team !== 'neutral' && target.team !== team && target.immune) {
         logActivity(`🛡️ <b>${user}</b> liked but enemy square <b>${target.coord}</b> is IMMUNE! (BLOCKED)`, 'shield');
         playSound('shield');
-        triggerVisualFX(randomIndex, 'under-attack');
+        triggerVisualFX(randomIndex, 'deflected');
         spawnFloatingText(randomIndex, "BLOCKED!", "immune");
         spawnParticles(randomIndex, 'gold');
         renderBoard();
@@ -473,7 +473,7 @@ function handleRandomDamage(amount, attacker, team) {
     if (square.immune) {
         logActivity(`🛡️ <b>${attacker}</b> sent a Rose but enemy square <b>${square.coord}</b> is IMMUNE! (BLOCKED)`, 'shield');
         playSound('shield');
-        triggerVisualFX(targetId, 'under-attack');
+        triggerVisualFX(targetId, 'deflected');
         spawnFloatingText(targetId, "BLOCKED!", "immune");
         spawnParticles(targetId, 'gold');
         renderBoard();
@@ -568,7 +568,7 @@ function claimSingleSquare(squareId, user, team) {
     if (square.immune && square.team !== 'neutral' && square.team !== team) {
         logActivity(`🛡️ center/impact hit <b>${square.coord}</b> but it is IMMUNE! (BLOCKED)`, 'shield');
         playSound('shield');
-        triggerVisualFX(squareId, 'under-attack');
+        triggerVisualFX(squareId, 'deflected');
         spawnFloatingText(squareId, "BLOCKED!", "immune");
         spawnParticles(squareId, 'gold');
         return;
