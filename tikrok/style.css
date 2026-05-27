@@ -1106,6 +1106,7 @@ input:checked + .slider:before {
 .immune .shd-fill {
     stroke: #fbbf24 !important;
     filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.9)) !important;
+    transition: stroke-dashoffset 0.1s linear !important;
 }
 
 .immune .shd-track {
@@ -1114,6 +1115,7 @@ input:checked + .slider:before {
 
 .immune .shd-catchup {
     stroke: rgba(251, 191, 36, 0.35) !important;
+    transition: stroke-dashoffset 0.1s linear !important;
 }
 
 /* Floating gold text */

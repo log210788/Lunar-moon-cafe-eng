@@ -235,7 +235,7 @@ function renderBoard() {
 
             let shieldBadgeHtml = '';
             if (square.immune) {
-                shieldBadgeHtml = `<span class="shield-badge immune-badge">⚡IMMUNE ${square.immuneTimeLeft}s</span>`;
+                shieldBadgeHtml = `<span class="shield-badge immune-badge">⚡IMMUNE ${Math.ceil(square.immuneTimeLeft)}s</span>`;
             } else if (square.shield > 0) {
                 shieldBadgeHtml = `<span class="shield-badge">🛡️${square.shield}</span>`;
             }
@@ -897,13 +897,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 6. Immunity Countdown Timer Loop (Ticks every 1s)
+    // 6. Immunity Countdown Timer Loop (Ticks every 100ms for smooth visuals)
     setInterval(() => {
         let changed = false;
         boardState.forEach(s => {
             if (s.immuneTimeLeft > 0) {
-                s.immuneTimeLeft--;
-                if (s.immuneTimeLeft === 0) {
+                s.immuneTimeLeft -= 0.1;
+                if (s.immuneTimeLeft <= 0) {
+                    s.immuneTimeLeft = 0;
                     s.immune = false;
                     s.shield = 0;
                     logActivity(`🛡️ Immunity expired on square <b>${s.coord}</b>!`, 'system');
@@ -917,5 +918,5 @@ document.addEventListener('DOMContentLoaded', () => {
         if (changed) {
             renderBoard();
         }
-    }, 1000);
+    }, 100);
 });
