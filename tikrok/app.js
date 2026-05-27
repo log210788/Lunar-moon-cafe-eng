@@ -180,7 +180,8 @@ function initBoard() {
             ownerName: 'System',
             profilePicUrl: '',
             immune: false,
-            immuneTimeLeft: 0
+            immuneTimeLeft: 0,
+            activeEffect: null
         });
     }
 }
@@ -221,6 +222,11 @@ function renderBoard() {
             // Shield bubble active
             if (square.shield > 0) sqEl.classList.add('shielded');
             if (square.immune) sqEl.classList.add('immune');
+            
+            // Active visual effects
+            if (square.activeEffect) {
+                sqEl.classList.add(square.activeEffect);
+            }
 
             // Form profile initials or image
             const avatarHtml = square.team === 'neutral'
@@ -266,8 +272,15 @@ function renderBoard() {
                 selectSquare(square.id);
             });
 
-            sqEl.addEventListener('animationend', () => {
-                sqEl.classList.remove('shake', 'takeover-flash', 'under-attack', 'deflected');
+            sqEl.addEventListener('animationend', (e) => {
+                if (e.target !== sqEl) return; // ignore children animationend events bubbling up
+                const effects = ['shake', 'takeover-flash', 'under-attack', 'deflected'];
+                effects.forEach(eff => {
+                    if (sqEl.classList.contains(eff)) {
+                        sqEl.classList.remove(eff);
+                        square.activeEffect = null;
+                    }
+                });
             });
 
             boardEl.appendChild(sqEl);
@@ -317,12 +330,16 @@ function logActivity(text, type = 'system') {
 }
 
 function triggerVisualFX(squareId, effect) {
-    const el = document.getElementById(`square-${squareId}`);
-    if (!el) return;
+    const square = boardState[squareId];
+    if (!square) return;
+    square.activeEffect = effect;
 
-    el.classList.remove('shake', 'takeover-flash', 'under-attack', 'deflected');
-    void el.offsetWidth; // Trigger reflow
-    el.classList.add(effect);
+    const el = document.getElementById(`square-${squareId}`);
+    if (el) {
+        el.classList.remove('shake', 'takeover-flash', 'under-attack', 'deflected');
+        void el.offsetWidth; // Trigger reflow
+        el.classList.add(effect);
+    }
 }
 
 function spawnFloatingText(squareId, text, type = 'damage') {
