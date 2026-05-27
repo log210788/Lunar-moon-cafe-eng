@@ -242,9 +242,11 @@ function renderBoard() {
                 <div class="username-label">${usernameText}</div>
                 <div class="square-bars">
                     <div class="bar-bg">
+                        <div class="hp-catchup-bar" style="width: ${hpPercent}%"></div>
                         <div class="hp-bar" style="width: ${hpPercent}%"></div>
                     </div>
                     <div class="bar-bg">
+                        <div class="shield-catchup-bar" style="width: ${shieldPercent}%"></div>
                         <div class="shield-bar" style="width: ${shieldPercent}%"></div>
                     </div>
                 </div>
@@ -322,11 +324,42 @@ function spawnFloatingText(squareId, text, type = 'damage') {
     floatEl.className = `floating-text ${type}`;
     floatEl.textContent = text;
 
+    // RPG style random angle and horizontal drift
+    const angle = (Math.random() - 0.5) * 36; // -18deg to +18deg
+    const drift = (Math.random() - 0.5) * 50; // -25px to +25px
+    floatEl.style.setProperty('--drift-x', `${drift}px`);
+    floatEl.style.setProperty('--rotate-angle', `${angle}deg`);
+
     sqEl.appendChild(floatEl);
 
     floatEl.addEventListener('animationend', () => {
         floatEl.remove();
     });
+}
+
+function spawnParticles(squareId, colorClass) {
+    const sqEl = document.getElementById(`square-${squareId}`);
+    if (!sqEl) return;
+
+    // Spawn 7 flying particles
+    for (let i = 0; i < 7; i++) {
+        const particle = document.createElement('div');
+        particle.className = `hit-particle ${colorClass}`;
+
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 15 + Math.random() * 25;
+        const destX = Math.cos(angle) * speed;
+        const destY = Math.sin(angle) * speed;
+
+        particle.style.setProperty('--dest-x', `${destX}px`);
+        particle.style.setProperty('--dest-y', `${destY}px`);
+
+        sqEl.appendChild(particle);
+
+        particle.addEventListener('animationend', () => {
+            particle.remove();
+        });
+    }
 }
 
 function selectSquare(id) {
@@ -365,6 +398,7 @@ function handleRandomLike(user, team) {
         playSound('like');
         triggerVisualFX(randomIndex, 'takeover-flash');
         spawnFloatingText(randomIndex, "CLAIM!", "heal");
+        spawnParticles(randomIndex, team === 'blue' ? 'cyan' : 'red');
     } else if (target.team === team) {
         // Fortify own team square
         target.hp = Math.min(100, target.hp + 20);
@@ -372,6 +406,7 @@ function handleRandomLike(user, team) {
         playSound('like');
         triggerVisualFX(randomIndex, 'takeover-flash');
         spawnFloatingText(randomIndex, "+20 HP", "heal");
+        spawnParticles(randomIndex, 'green');
     } else {
         // Attack enemy square
         triggerVisualFX(randomIndex, 'under-attack');
@@ -380,10 +415,12 @@ function handleRandomLike(user, team) {
             logActivity(`👍 <b>${user}</b> liked and randomly hit enemy shield on <b>${target.coord}</b> (-40).`, 'shield');
             playSound('damage');
             spawnFloatingText(randomIndex, "-40 SHD", "damage");
+            spawnParticles(randomIndex, 'cyan');
         } else {
             target.hp = Math.max(0, target.hp - 30);
             logActivity(`👍 <b>${user}</b> liked and damaged enemy square <b>${target.coord}</b> (-30 HP).`, 'rose');
             spawnFloatingText(randomIndex, "-30 HP", "damage");
+            spawnParticles(randomIndex, 'red');
             
             if (target.hp <= 0) {
                 const oldTeam = target.team;
@@ -418,10 +455,12 @@ function handleRandomDamage(amount, attacker, team) {
         logActivity(`🌹 <b>${attacker}</b> sent a Rose and randomly hit enemy shield on <b>${square.coord}</b> (-${amount})!`, 'shield');
         playSound('damage');
         spawnFloatingText(targetId, `-${amount} SHD`, "damage");
+        spawnParticles(targetId, 'cyan');
     } else {
         square.hp = Math.max(0, square.hp - amount);
         logActivity(`🌹 <b>${attacker}</b> sent a Rose and dealt <b>${amount} dmg</b> to <b>${square.coord}</b>!`, 'rose');
         spawnFloatingText(targetId, `-${amount} HP`, "damage");
+        spawnParticles(targetId, 'red');
         
         if (square.hp <= 0) {
             claimSingleSquare(targetId, attacker, team);
@@ -451,6 +490,7 @@ function handleRandomShield(amount, user, team) {
     playSound('shield');
     triggerVisualFX(targetId, 'takeover-flash');
     spawnFloatingText(targetId, `+${amount} SHD`, "shield");
+    spawnParticles(targetId, 'cyan');
     renderBoard();
 }
 
@@ -470,6 +510,8 @@ function claimSingleSquare(squareId, user, team) {
     
     triggerVisualFX(squareId, 'takeover-flash');
     spawnFloatingText(squareId, oldTeam !== 'neutral' ? "CONQUERED!" : "CLAIMED!", "heal");
+    spawnParticles(squareId, team === 'blue' ? 'cyan' : 'red');
+    spawnParticles(squareId, 'gold'); // dual sparks for capture!
 }
 
 // ==========================================================================
