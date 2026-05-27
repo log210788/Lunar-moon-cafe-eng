@@ -1068,3 +1068,56 @@ input:checked + .slider:before {
     }
 }
 
+/* Shield Immunity Styles & Visual Cues */
+.immune-badge {
+    color: #fbbf24 !important; /* Gold text */
+    font-weight: 850;
+    margin-left: 3px;
+    text-shadow: 0 0 6px rgba(251, 191, 36, 0.9);
+    animation: textPulse 1s infinite alternate ease-in-out;
+}
+
+@keyframes textPulse {
+    0% { opacity: 0.75; transform: scale(0.95); }
+    100% { opacity: 1; transform: scale(1.05); }
+}
+
+/* Glowing Golden Hexagonal Forcefield Bubble Overlay */
+.grid-square.immune .shield-bubble-overlay {
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.15) 30%, rgba(245, 158, 11, 0.5) 100%) !important;
+    opacity: 1 !important;
+    animation: goldShieldPulse 1.2s infinite alternate ease-in-out;
+}
+
+@keyframes goldShieldPulse {
+    0% {
+        opacity: 0.7;
+        filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.5));
+    }
+    100% {
+        opacity: 1;
+        filter: drop-shadow(0 0 16px rgba(245, 158, 11, 0.95)) brightness(1.2);
+    }
+}
+
+/* Change Shield HUD Outline to Golden */
+.immune .shd-fill {
+    stroke: #fbbf24 !important;
+    filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.9)) !important;
+}
+
+.immune .shd-track {
+    stroke: rgba(251, 191, 36, 0.08) !important;
+}
+
+.immune .shd-catchup {
+    stroke: rgba(251, 191, 36, 0.35) !important;
+}
+
+/* Floating gold text */
+.floating-text.immune {
+    color: #fbbf24;
+    font-weight: 850;
+    text-shadow: 0 0 8px rgba(251, 191, 36, 0.7), 0 2px 4px rgba(0, 0, 0, 0.85);
+}
+

@@ -178,7 +178,9 @@ function initBoard() {
             shield: 0,
             team: 'neutral',
             ownerName: 'System',
-            profilePicUrl: ''
+            profilePicUrl: '',
+            immune: false,
+            immuneTimeLeft: 0
         });
     }
 }
@@ -218,6 +220,7 @@ function renderBoard() {
             
             // Shield bubble active
             if (square.shield > 0) sqEl.classList.add('shielded');
+            if (square.immune) sqEl.classList.add('immune');
 
             // Form profile initials or image
             const avatarHtml = square.team === 'neutral'
@@ -230,9 +233,12 @@ function renderBoard() {
             const hpPercent = (square.hp / square.maxHp) * 100;
             const shieldPercent = Math.min(100, (square.shield / 500) * 100);
 
-            const shieldBadgeHtml = square.shield > 0 
-                ? `<span class="shield-badge">🛡️${square.shield}</span>` 
-                : '';
+            let shieldBadgeHtml = '';
+            if (square.immune) {
+                shieldBadgeHtml = `<span class="shield-badge immune-badge">⚡IMMUNE ${square.immuneTimeLeft}s</span>`;
+            } else if (square.shield > 0) {
+                shieldBadgeHtml = `<span class="shield-badge">🛡️${square.shield}</span>`;
+            }
 
             sqEl.innerHTML = `
                 <div class="square-coord">${square.coord}${shieldBadgeHtml}</div>
@@ -394,6 +400,17 @@ function handleRandomLike(user, team) {
     const target = boardState[randomIndex];
     updateLastTargetIndicator(randomIndex);
 
+    // Block attacks on immune enemy squares
+    if (target.team !== 'neutral' && target.team !== team && target.immune) {
+        logActivity(`🛡️ <b>${user}</b> liked but enemy square <b>${target.coord}</b> is IMMUNE! (BLOCKED)`, 'shield');
+        playSound('shield');
+        triggerVisualFX(randomIndex, 'under-attack');
+        spawnFloatingText(randomIndex, "BLOCKED!", "immune");
+        spawnParticles(randomIndex, 'gold');
+        renderBoard();
+        return;
+    }
+
     if (target.team === 'neutral') {
         // Claim neutral instantly
         setSquareOwner(target, user, team);
@@ -451,6 +468,18 @@ function handleRandomDamage(amount, attacker, team) {
 
     const square = boardState[targetId];
     updateLastTargetIndicator(targetId);
+
+    // Block attack if square is immune
+    if (square.immune) {
+        logActivity(`🛡️ <b>${attacker}</b> sent a Rose but enemy square <b>${square.coord}</b> is IMMUNE! (BLOCKED)`, 'shield');
+        playSound('shield');
+        triggerVisualFX(targetId, 'under-attack');
+        spawnFloatingText(targetId, "BLOCKED!", "immune");
+        spawnParticles(targetId, 'gold');
+        renderBoard();
+        return;
+    }
+    
     triggerVisualFX(targetId, 'under-attack');
     
     if (square.shield > 0) {
@@ -477,23 +506,56 @@ function handleRandomDamage(amount, attacker, team) {
 
 // Boost Shield donation (Chooses a Random Owned Square)
 function handleRandomShield(amount, user, team) {
-    const ownedSquares = boardState.filter(s => s.team === team);
+    // Prioritize owned squares that are NOT already immune
+    const ownedSquares = boardState.filter(s => s.team === team && !s.immune);
     
+    let targetId;
     if (ownedSquares.length === 0) {
-        logActivity(`System: <b>${user}</b> tried to shield, but ${team.toUpperCase()} owns no squares to shield!`, 'system');
-        return;
+        // If all owned squares are already immune, fallback to any owned square
+        const allOwned = boardState.filter(s => s.team === team);
+        if (allOwned.length === 0) {
+            logActivity(`System: <b>${user}</b> tried to shield, but ${team.toUpperCase()} owns no squares!`, 'system');
+            return;
+        }
+        targetId = allOwned[Math.floor(Math.random() * allOwned.length)].id;
+    } else {
+        targetId = ownedSquares[Math.floor(Math.random() * ownedSquares.length)].id;
     }
 
-    const targetId = ownedSquares[Math.floor(Math.random() * ownedSquares.length)].id;
     const square = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
-    square.shield = Math.min(999, square.shield + amount);
-    logActivity(`💖 <b>${user}</b> sent a Heart Shield and boosted owned square <b>${square.coord}</b> (+${amount} Shield)!`, 'shield');
-    playSound('shield');
-    triggerVisualFX(targetId, 'takeover-flash');
-    spawnFloatingText(targetId, `+${amount} SHD`, "shield");
-    spawnParticles(targetId, 'cyan');
+    if (square.immune) {
+        // Refresh immunity timer to 60s
+        square.immuneTimeLeft = 60;
+        logActivity(`💖 <b>${user}</b> refreshed IMMUNITY timer on square <b>${square.coord}</b>!`, 'shield');
+        playSound('shield');
+        triggerVisualFX(targetId, 'takeover-flash');
+        spawnFloatingText(targetId, "REFRESH", "immune");
+        spawnParticles(targetId, 'gold');
+        renderBoard();
+        return;
+    }
+
+    // Upgrade shield
+    square.shield = Math.min(500, square.shield + amount);
+    
+    if (square.shield >= 500) {
+        square.immune = true;
+        square.immuneTimeLeft = 60;
+        logActivity(`👑 <b>SUPERCHARGE!</b> Square <b>${square.coord}</b> has achieved a FULL shield rotation and is now <b>IMMUNE for 60 seconds</b>!`, 'nuke');
+        playSound('shield');
+        triggerVisualFX(targetId, 'takeover-flash');
+        spawnFloatingText(targetId, "IMMUNE!", "immune");
+        spawnParticles(targetId, 'gold');
+        triggerHypeAlert("IMMUNITY TRIGGERED!", `Square ${square.coord} is now IMMUNE for 60s!`, "👑", false);
+    } else {
+        logActivity(`💖 <b>${user}</b> sent a Heart Shield and boosted owned square <b>${square.coord}</b> (+${amount} Shield)!`, 'shield');
+        playSound('shield');
+        triggerVisualFX(targetId, 'takeover-flash');
+        spawnFloatingText(targetId, `+${amount} SHD`, "shield");
+        spawnParticles(targetId, 'cyan');
+    }
     renderBoard();
 }
 
@@ -501,6 +563,16 @@ function handleRandomShield(amount, user, team) {
 function claimSingleSquare(squareId, user, team) {
     const square = boardState[squareId];
     if (!square) return;
+
+    // Block takeover if the square is immune and owned by the enemy
+    if (square.immune && square.team !== 'neutral' && square.team !== team) {
+        logActivity(`🛡️ center/impact hit <b>${square.coord}</b> but it is IMMUNE! (BLOCKED)`, 'shield');
+        playSound('shield');
+        triggerVisualFX(squareId, 'under-attack');
+        spawnFloatingText(squareId, "BLOCKED!", "immune");
+        spawnParticles(squareId, 'gold');
+        return;
+    }
 
     const oldTeam = square.team;
     setSquareOwner(square, user, team);
@@ -824,4 +896,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // 6. Immunity Countdown Timer Loop (Ticks every 1s)
+    setInterval(() => {
+        let changed = false;
+        boardState.forEach(s => {
+            if (s.immuneTimeLeft > 0) {
+                s.immuneTimeLeft--;
+                if (s.immuneTimeLeft === 0) {
+                    s.immune = false;
+                    s.shield = 0;
+                    logActivity(`🛡️ Immunity expired on square <b>${s.coord}</b>!`, 'system');
+                    playSound('damage'); // play deflect break/expire sound
+                    spawnFloatingText(s.id, "EXPIRED", "damage");
+                    spawnParticles(s.id, 'red');
+                }
+                changed = true;
+            }
+        });
+        if (changed) {
+            renderBoard();
+        }
+    }, 1000);
 });
