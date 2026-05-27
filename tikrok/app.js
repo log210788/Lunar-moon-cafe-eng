@@ -240,16 +240,19 @@ function renderBoard() {
                     ${avatarHtml}
                 </div>
                 <div class="username-label">${usernameText}</div>
-                <div class="square-bars">
-                    <div class="bar-bg">
-                        <div class="hp-catchup-bar" style="width: ${hpPercent}%"></div>
-                        <div class="hp-bar" style="width: ${hpPercent}%"></div>
-                    </div>
-                    <div class="bar-bg">
-                        <div class="shield-catchup-bar" style="width: ${shieldPercent}%"></div>
-                        <div class="shield-bar" style="width: ${shieldPercent}%"></div>
-                    </div>
-                </div>
+                
+                <!-- Hexagonal HUD Perimeter Overlay -->
+                <svg class="hex-hud-svg" viewBox="0 0 80 92">
+                    <!-- Health Outer HUD Track & Bars -->
+                    <polygon class="hud-path hp-track" points="40,3.5 77,24.8 77,67.2 40,88.5 3,67.2 3,24.8" />
+                    <polygon class="hud-path hp-catchup" points="40,3.5 77,24.8 77,67.2 40,88.5 3,67.2 3,24.8" style="stroke-dasharray: 254; stroke-dashoffset: ${254 * (1 - hpPercent/100)}" />
+                    <polygon class="hud-path hp-fill" points="40,3.5 77,24.8 77,67.2 40,88.5 3,67.2 3,24.8" style="stroke-dasharray: 254; stroke-dashoffset: ${254 * (1 - hpPercent/100)}" />
+                    
+                    <!-- Shield Inner HUD Track & Bars -->
+                    <polygon class="hud-path shd-track" points="40,8.3 72.8,27.1 72.8,64.9 40,83.7 7.2,64.9 7.2,27.1" />
+                    <polygon class="hud-path shd-catchup" points="40,8.3 72.8,27.1 72.8,64.9 40,83.7 7.2,64.9 7.2,27.1" style="stroke-dasharray: 227; stroke-dashoffset: ${227 * (1 - shieldPercent/100)}" />
+                    <polygon class="hud-path shd-fill" points="40,8.3 72.8,27.1 72.8,64.9 40,83.7 7.2,64.9 7.2,27.1" style="stroke-dasharray: 227; stroke-dashoffset: ${227 * (1 - shieldPercent/100)}" />
+                </svg>
                 <div class="shield-bubble-overlay"></div>
             `;
 

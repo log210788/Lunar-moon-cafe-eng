@@ -255,64 +255,81 @@ h1, h2, h3 {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
-/* HP and Shield Bars */
-.square-bars {
-    width: 80%;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5px;
-    z-index: 2;
-    margin-top: auto;
-}
-
-.bar-bg {
-    height: 5px;
-    background-color: rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    overflow: hidden;
-    position: relative; /* support stacked bars */
-}
-
-.hp-catchup-bar {
+/* Hexagonal HUD Perimeter Progress Bars */
+.hex-hud-svg {
     position: absolute;
     top: 0;
     left: 0;
-    height: 100%;
-    background-color: #fca5a5; /* light red catch-up */
-    opacity: 0.8;
-    transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1) 0.15s;
+    width: 80px;
+    height: 92px;
+    pointer-events: none;
+    z-index: 3;
+}
+
+.hud-path {
+    fill: none;
+    stroke-width: 2.2px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: stroke-dashoffset 0.25s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.3s ease;
+}
+
+.hp-track {
+    stroke: rgba(255, 255, 255, 0.04);
+}
+
+.hp-catchup {
+    stroke: rgba(255, 255, 255, 0.25);
+    transition: stroke-dashoffset 0.7s cubic-bezier(0.25, 1, 0.5, 1) 0.15s;
     z-index: 1;
 }
 
-.hp-bar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    background-color: #ef4444;
-    transition: width 0.2s ease-out;
+.blue-owned .hp-catchup {
+    stroke: rgba(0, 210, 255, 0.3);
+}
+
+.red-owned .hp-catchup {
+    stroke: rgba(255, 0, 127, 0.3);
+}
+
+.hp-fill {
+    stroke: var(--neutral-team);
     z-index: 2;
 }
 
-.shield-catchup-bar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    background-color: #ffffff; /* white catch-up */
-    opacity: 0.6;
-    transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1) 0.15s;
+.blue-owned .hp-fill {
+    stroke: var(--blue-team);
+    filter: drop-shadow(0 0 3px var(--blue-team-glow));
+}
+
+.red-owned .hp-fill {
+    stroke: var(--red-team);
+    filter: drop-shadow(0 0 3px var(--red-team-glow));
+}
+
+/* Shield indicators: only visible on shielded cells */
+.shd-track, .shd-catchup, .shd-fill {
+    opacity: 0;
+    transition: opacity 0.3s ease, stroke-dashoffset 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shielded .shd-track, .shielded .shd-catchup, .shielded .shd-fill {
+    opacity: 1;
+}
+
+.shd-track {
+    stroke: rgba(255, 255, 255, 0.03);
+}
+
+.shd-catchup {
+    stroke: rgba(255, 255, 255, 0.35);
+    transition: stroke-dashoffset 0.7s cubic-bezier(0.25, 1, 0.5, 1) 0.15s;
     z-index: 1;
 }
 
-.shield-bar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    background-color: #00d2ff;
-    box-shadow: 0 0 6px rgba(0, 210, 255, 0.8);
-    transition: width 0.2s ease-out;
+.shd-fill {
+    stroke: #00d2ff;
+    filter: drop-shadow(0 0 4px rgba(0, 210, 255, 0.8));
     z-index: 2;
 }
 
@@ -366,7 +383,8 @@ h1, h2, h3 {
     border-radius: 4px;
     border: 1px solid rgba(255, 255, 255, 0.05);
     z-index: 2;
-    margin-bottom: 3px;
+    margin-top: auto; /* Push username to bottom region */
+    margin-bottom: 8px; /* Avoid collision with bottom point */
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
