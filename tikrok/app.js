@@ -1,0 +1,749 @@
+// ==========================================================================
+// Web Audio Synthesizer (No external assets required!)
+// ==========================================================================
+let audioCtx = null;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+function playSound(type) {
+    if (!document.getElementById('audioToggle').checked) return;
+    try {
+        initAudio();
+        const now = audioCtx.currentTime;
+
+        switch (type) {
+            case 'like': {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(500, now);
+                osc.frequency.exponentialRampToValueAtTime(1500, now + 0.08);
+                
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.08);
+                break;
+            }
+            case 'damage': {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(700, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.15);
+                
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+                break;
+            }
+            case 'shield': {
+                const osc1 = audioCtx.createOscillator();
+                const osc2 = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(400, now);
+                osc1.frequency.exponentialRampToValueAtTime(800, now + 0.25);
+                
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(600, now);
+                osc2.frequency.exponentialRampToValueAtTime(1200, now + 0.25);
+                
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc1.start(now);
+                osc2.start(now);
+                osc1.stop(now + 0.3);
+                osc2.stop(now + 0.3);
+                break;
+            }
+            case 'nuke-cross': {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.25);
+                
+                gain.gain.setValueAtTime(0.18, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+                break;
+            }
+            case 'nuke-area': {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(40, now + 0.4);
+                
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.4);
+                break;
+            }
+            case 'nuke-laser': {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(100, now);
+                osc.frequency.linearRampToValueAtTime(900, now + 0.6);
+                
+                gain.gain.setValueAtTime(0.22, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.6);
+                break;
+            }
+            case 'nuke-mega': {
+                const osc = audioCtx.createOscillator();
+                const noiseGain = audioCtx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(80, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.5);
+                osc.frequency.exponentialRampToValueAtTime(30, now + 1.4);
+                
+                noiseGain.gain.setValueAtTime(0.01, now);
+                noiseGain.gain.linearRampToValueAtTime(0.25, now + 0.5);
+                noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 1.4);
+                
+                osc.connect(noiseGain);
+                noiseGain.connect(audioCtx.destination);
+                
+                osc.start(now);
+                osc.stop(now + 1.4);
+                break;
+            }
+        }
+    } catch (e) {
+        console.warn('Audio context suspended or failed', e);
+    }
+}
+
+// ==========================================================================
+// Board State & Configuration
+// ==========================================================================
+const GRID_SIZE = 6;
+let boardState = [];
+let lastTargetId = -1; // stores the target of the last simulated action
+let currentUserTeam = 'blue';
+
+// Generate A1, B2 labels from index
+function getCoordLabel(index) {
+    const colLetter = String.fromCharCode(65 + (index % GRID_SIZE)); // A, B, C...
+    const rowNum = Math.floor(index / GRID_SIZE) + 1; // 1, 2, 3...
+    return `${colLetter}${rowNum}`;
+}
+
+// Init board array: ALL start neutral (empty)
+function initBoard() {
+    boardState = [];
+    for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+        boardState.push({
+            id: i,
+            coord: getCoordLabel(i),
+            hp: 100,
+            maxHp: 100,
+            shield: 0,
+            team: 'neutral',
+            ownerName: 'System',
+            profilePicUrl: ''
+        });
+    }
+}
+
+// ==========================================================================
+// UI Rendering & DOM Updates
+// ==========================================================================
+function renderBoard() {
+    const boardEl = document.getElementById('gridBoard');
+    boardEl.innerHTML = '';
+
+    for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+            const index = r * GRID_SIZE + c;
+            const square = boardState[index];
+
+            const sqEl = document.createElement('div');
+            sqEl.className = 'grid-square';
+            sqEl.dataset.id = square.id;
+            sqEl.id = `square-${square.id}`;
+
+            // Calculate precise absolute positions for Civ 5 grid spacing
+            const left = c * 82 + (r % 2 === 1 ? 41 : 0);
+            const top = r * 69 + 12; // Shifted down by 12px to prevent top protrusion
+            const zIndex = 6 - r; // Earlier rows sit on top of later rows
+
+            sqEl.style.left = `${left}px`;
+            sqEl.style.top = `${top}px`;
+            sqEl.style.zIndex = zIndex;
+
+            // Team Owner Styles
+            if (square.team === 'blue') sqEl.classList.add('blue-owned');
+            if (square.team === 'red') sqEl.classList.add('red-owned');
+            
+            // Highlight last targeted action square
+            if (square.id === lastTargetId) sqEl.classList.add('selected');
+            
+            // Shield bubble active
+            if (square.shield > 0) sqEl.classList.add('shielded');
+
+            // Form profile initials or image
+            const avatarHtml = square.team === 'neutral'
+                ? 'SYS'
+                : `<img class="user-avatar" src="${square.profilePicUrl}" alt="${square.ownerName}">`;
+            
+            const usernameText = square.team === 'neutral' ? 'System' : square.ownerName;
+
+            // Calculate health widths
+            const hpPercent = (square.hp / square.maxHp) * 100;
+            const shieldPercent = Math.min(100, (square.shield / 500) * 100);
+
+            sqEl.innerHTML = `
+                <div class="square-coord">${square.coord}</div>
+                <div class="square-owner" title="Owner: ${square.ownerName}">
+                    ${avatarHtml}
+                </div>
+                <div class="username-label">${usernameText}</div>
+                <div class="square-bars">
+                    <div class="bar-bg">
+                        <div class="hp-bar" style="width: ${hpPercent}%"></div>
+                    </div>
+                    <div class="bar-bg">
+                        <div class="shield-bar" style="width: ${shieldPercent}%"></div>
+                    </div>
+                </div>
+                <div class="shield-bubble-overlay"></div>
+            `;
+
+            sqEl.addEventListener('click', () => {
+                selectSquare(square.id);
+            });
+
+            sqEl.addEventListener('animationend', () => {
+                sqEl.classList.remove('shake', 'takeover-flash');
+            });
+
+            boardEl.appendChild(sqEl);
+        }
+    }
+
+    updateStats();
+}
+
+function updateLastTargetIndicator(id) {
+    lastTargetId = id;
+    const square = boardState[id];
+    if (square) {
+        document.querySelector('.coordinate-value').textContent = square.coord;
+    }
+}
+
+function updateStats() {
+    let blueCount = 0;
+    let redCount = 0;
+    let neutralCount = 0;
+
+    boardState.forEach(s => {
+        if (s.team === 'blue') blueCount++;
+        else if (s.team === 'red') redCount++;
+        else neutralCount++;
+    });
+
+    document.getElementById('blueScore').textContent = blueCount;
+    document.getElementById('redScore').textContent = redCount;
+    document.getElementById('neutralScore').textContent = neutralCount;
+}
+
+// Log activities to screen
+function logActivity(text, type = 'system') {
+    const logEl = document.getElementById('activityLog');
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    entry.innerHTML = `<span style="color: var(--text-muted)">[${time}]</span> ${text}`;
+    
+    logEl.appendChild(entry);
+    
+    // Auto Scroll
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+function triggerVisualFX(squareId, effect) {
+    const el = document.getElementById(`square-${squareId}`);
+    if (!el) return;
+
+    el.classList.remove('shake', 'takeover-flash');
+    void el.offsetWidth; // Trigger reflow
+    el.classList.add(effect);
+}
+
+// ==========================================================================
+// Gameplay Mechanics Handlers (All Actions are Randomly Target-based)
+// ==========================================================================
+
+// Helper to set owner and profile picture
+function setSquareOwner(square, ownerName, team) {
+    square.team = team;
+    square.ownerName = ownerName;
+    square.hp = 100;
+    square.shield = 0;
+    if (ownerName === 'System') {
+        square.profilePicUrl = '';
+    } else {
+        // Use Robohash to generate a cute unique cat avatar for the user
+        square.profilePicUrl = `https://robohash.org/${encodeURIComponent(ownerName)}?set=set4`;
+    }
+}
+
+// Input A: Likes Action (Random Placement / Attack)
+function handleRandomLike(user, team) {
+    const randomIndex = Math.floor(Math.random() * boardState.length);
+    const target = boardState[randomIndex];
+    updateLastTargetIndicator(randomIndex);
+
+    if (target.team === 'neutral') {
+        // Claim neutral instantly
+        setSquareOwner(target, user, team);
+        logActivity(`👍 <b>${user}</b> liked and randomly claimed neutral square <b>${target.coord}</b> for ${team.toUpperCase()}!`, 'like');
+        playSound('like');
+        triggerVisualFX(randomIndex, 'takeover-flash');
+    } else if (target.team === team) {
+        // Fortify own team square
+        target.hp = Math.min(100, target.hp + 20);
+        logActivity(`👍 <b>${user}</b> liked and fortified owned square <b>${target.coord}</b> (+20 HP).`, 'like');
+        playSound('like');
+        triggerVisualFX(randomIndex, 'takeover-flash');
+    } else {
+        // Attack enemy square
+        triggerVisualFX(randomIndex, 'shake');
+        if (target.shield > 0) {
+            target.shield = Math.max(0, target.shield - 40);
+            logActivity(`👍 <b>${user}</b> liked and randomly hit enemy shield on <b>${target.coord}</b> (-40).`, 'shield');
+            playSound('damage');
+        } else {
+            target.hp = Math.max(0, target.hp - 30);
+            logActivity(`👍 <b>${user}</b> liked and damaged enemy square <b>${target.coord}</b> (-30 HP).`, 'rose');
+            
+            if (target.hp <= 0) {
+                const oldTeam = target.team;
+                setSquareOwner(target, user, team);
+                logActivity(`🚩 Conquered! <b>${target.coord}</b> flips to ${team.toUpperCase()} team from ${oldTeam.toUpperCase()} via likes!`, 'nuke');
+                playSound('nuke-cross');
+                triggerVisualFX(randomIndex, 'takeover-flash');
+            } else {
+                playSound('damage');
+            }
+        }
+    }
+    renderBoard();
+}
+
+// Rose Attack donation (Chooses a Random Enemy Square)
+function handleRandomDamage(amount, attacker, team) {
+    // Filter out target squares belonging to own team
+    const enemySquares = boardState.filter(s => s.team !== team && s.team !== 'neutral');
+    
+    // Choose target: random enemy square, or random overall if none exist
+    const targetId = enemySquares.length > 0
+        ? enemySquares[Math.floor(Math.random() * enemySquares.length)].id
+        : Math.floor(Math.random() * boardState.length);
+
+    const square = boardState[targetId];
+    updateLastTargetIndicator(targetId);
+    triggerVisualFX(targetId, 'shake');
+    
+    if (square.shield > 0) {
+        square.shield = Math.max(0, square.shield - amount);
+        logActivity(`🌹 <b>${attacker}</b> sent a Rose and randomly hit enemy shield on <b>${square.coord}</b> (-${amount})!`, 'shield');
+        playSound('damage');
+    } else {
+        square.hp = Math.max(0, square.hp - amount);
+        logActivity(`🌹 <b>${attacker}</b> sent a Rose and dealt <b>${amount} dmg</b> to <b>${square.coord}</b>!`, 'rose');
+        
+        if (square.hp <= 0) {
+            claimSingleSquare(targetId, attacker, team);
+        } else {
+            playSound('damage');
+        }
+    }
+
+    renderBoard();
+}
+
+// Boost Shield donation (Chooses a Random Owned Square)
+function handleRandomShield(amount, user, team) {
+    const ownedSquares = boardState.filter(s => s.team === team);
+    
+    if (ownedSquares.length === 0) {
+        logActivity(`System: <b>${user}</b> tried to shield, but ${team.toUpperCase()} owns no squares to shield!`, 'system');
+        return;
+    }
+
+    const targetId = ownedSquares[Math.floor(Math.random() * ownedSquares.length)].id;
+    const square = boardState[targetId];
+    updateLastTargetIndicator(targetId);
+
+    square.shield = Math.min(999, square.shield + amount);
+    logActivity(`💖 <b>${user}</b> sent a Heart Shield and boosted owned square <b>${square.coord}</b> (+${amount} Shield)!`, 'shield');
+    playSound('shield');
+    renderBoard();
+}
+
+// Helper to overwrite a single square
+function claimSingleSquare(squareId, user, team) {
+    const square = boardState[squareId];
+    if (!square) return;
+
+    const oldTeam = square.team;
+    setSquareOwner(square, user, team);
+    
+    if (oldTeam !== 'neutral') {
+        logActivity(`🚩 <b>${square.coord}</b> conquered from ${oldTeam.toUpperCase()} team by <b>${user}</b> (<span class="${team}-text" style="color: var(--${team}-team)"><b>${team.toUpperCase()}</b></span>)!`, 'nuke');
+    } else {
+        logActivity(`🚩 <b>${square.coord}</b> claimed by <b>${user}</b> for the <span class="${team}-text" style="color: var(--${team}-team)"><b>${team.toUpperCase()} TEAM</b></span>!`, 'nuke');
+    }
+    
+    triggerVisualFX(squareId, 'takeover-flash');
+}
+
+// ==========================================================================
+// DIFFERENT LAYER OF NUKES (All target randomly)
+// ==========================================================================
+
+// Layer 1: Cross Nuke (Bolt - Cost: 10 Coins)
+function launchCrossNuke(user, team) {
+    const targetId = Math.floor(Math.random() * boardState.length);
+    const target = boardState[targetId];
+    updateLastTargetIndicator(targetId);
+
+    playSound('nuke-cross');
+    logActivity(`⚡ <b>${user}</b> sent a TikTok Bolt, launching a <b>Cross Nuke</b> centered at <b>${target.coord}</b>!`, 'nuke');
+
+    const col = targetId % GRID_SIZE;
+    const row = Math.floor(targetId / GRID_SIZE);
+
+    const coordinates = [
+        { r: row, c: col },       // Center
+        { r: row - 1, c: col },   // Up
+        { r: row + 1, c: col },   // Down
+        { r: row, c: col - 1 },   // Left
+        { r: row, c: col + 1 }    // Right
+    ];
+
+    coordinates.forEach(coord => {
+        if (coord.r >= 0 && coord.r < GRID_SIZE && coord.c >= 0 && coord.c < GRID_SIZE) {
+            const id = coord.r * GRID_SIZE + coord.c;
+            claimSingleSquare(id, user, team);
+        }
+    });
+
+    renderBoard();
+}
+
+// Layer 2: Area Nuke (Bomb - Cost: 30 Coins)
+function launchAreaNuke(user, team) {
+    const targetId = Math.floor(Math.random() * boardState.length);
+    const target = boardState[targetId];
+    updateLastTargetIndicator(targetId);
+
+    playSound('nuke-area');
+    logActivity(`💥 <b>${user}</b> sent a Bomb, launching a <b>3x3 Area Nuke</b> centered on <b>${target.coord}</b>!`, 'nuke');
+
+    const col = targetId % GRID_SIZE;
+    const row = Math.floor(targetId / GRID_SIZE);
+
+    for (let r = row - 1; r <= row + 1; r++) {
+        for (let c = col - 1; c <= col + 1; c++) {
+            if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+                const id = r * GRID_SIZE + c;
+                claimSingleSquare(id, user, team);
+            }
+        }
+    }
+
+    renderBoard();
+}
+
+// Layer 3: Laser Column/Row Nuke (Rocket - Cost: 99 Coins)
+function launchLaserNuke(user, team) {
+    const targetId = Math.floor(Math.random() * boardState.length);
+    const target = boardState[targetId];
+    updateLastTargetIndicator(targetId);
+
+    playSound('nuke-laser');
+    logActivity(`🚀 <b>${user}</b> sent a Rocket, firing a <b>Row & Column Laser</b> centered on <b>${target.coord}</b>!`, 'nuke');
+    triggerHypeAlert("LASER SWEEP!", `${user} launched a Row & Column Rocket!`, "🚀", false);
+
+    const col = targetId % GRID_SIZE;
+    const row = Math.floor(targetId / GRID_SIZE);
+
+    for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+        const c = i % GRID_SIZE;
+        const r = Math.floor(i / GRID_SIZE);
+        
+        if (c === col || r === row) {
+            claimSingleSquare(i, user, team);
+        }
+    }
+
+    renderBoard();
+}
+
+// Layer 4: Mega Galaxy Nuke (Galaxy - Cost: 500 Coins)
+function launchMegaNuke(user, team) {
+    const targetId = Math.floor(Math.random() * boardState.length);
+    const target = boardState[targetId];
+    updateLastTargetIndicator(targetId);
+
+    playSound('nuke-mega');
+    logActivity(`🌌 <b>${user}</b> sent a Universe, launching a massive <b>5x5 Galaxy Nuke</b> centered at <b>${target.coord}</b>!`, 'nuke');
+    triggerHypeAlert("GALAXY NUKE!", `${user} sent a UNIVERSE: 5x5 explosion!`, "🌌", true);
+
+    const col = targetId % GRID_SIZE;
+    const row = Math.floor(targetId / GRID_SIZE);
+
+    for (let r = row - 2; r <= row + 2; r++) {
+        for (let c = col - 2; c <= col + 2; c++) {
+            if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+                const id = r * GRID_SIZE + c;
+                claimSingleSquare(id, user, team);
+            }
+        }
+    }
+
+    renderBoard();
+}
+
+// ==========================================================================
+// Hype Stream Alerts (Monetization Alert Banners & Full Screen VFX)
+// ==========================================================================
+let hypeTimeout = null;
+function triggerHypeAlert(title, subtitle, emoji, isMega = false) {
+    const overlay = document.getElementById('hypeAlert');
+    const titleEl = document.getElementById('hypeTitle');
+    const subEl = document.getElementById('hypeSubtitle');
+    const emojiEl = document.getElementById('hypeEmoji');
+    
+    if (!overlay || !titleEl || !subEl || !emojiEl) return;
+    
+    titleEl.textContent = title;
+    subEl.textContent = subtitle;
+    emojiEl.textContent = emoji;
+    
+    overlay.classList.remove('active');
+    void overlay.offsetWidth; // Reflow
+    overlay.classList.add('active');
+    
+    if (isMega) {
+        // Trigger full screen shake
+        const container = document.querySelector('.game-container');
+        if (container) {
+            container.classList.remove('shake-screen');
+            void container.offsetWidth;
+            container.classList.add('shake-screen');
+        }
+        
+        // Trigger screen background flash
+        const arena = document.querySelector('.grid-arena-container');
+        if (arena) {
+            arena.classList.remove('flash-screen');
+            void arena.offsetWidth;
+            arena.classList.add('flash-screen');
+        }
+    }
+    
+    if (hypeTimeout) clearTimeout(hypeTimeout);
+    hypeTimeout = setTimeout(() => {
+        overlay.classList.remove('active');
+    }, 3000);
+}
+
+// ==========================================================================
+// Auto-Simulation Stream Mode (Demo)
+// ==========================================================================
+let autoSimInterval = null;
+const BLUE_VIEWERS = ["Blue_Wave", "Aqua_Knight", "Frost_Byte", "Cobalt_Rex", "Ocean_Eye", "Sky_Shield", "Hex_Blue", "Tidal_Wave"];
+const RED_VIEWERS = ["Red_Fury", "Ruby_Fyre", "Crimson_Claw", "Blaze_Star", "Scarlet_Viper", "Magma_Lord", "Hex_Red", "Cosmic_Ember"];
+
+function startAutoSimulation() {
+    if (autoSimInterval) return;
+    
+    autoSimInterval = setInterval(() => {
+        // Pick a random team for the action
+        const team = Math.random() < 0.5 ? 'blue' : 'red';
+        const viewers = team === 'blue' ? BLUE_VIEWERS : RED_VIEWERS;
+        const viewer = viewers[Math.floor(Math.random() * viewers.length)];
+        
+        const roll = Math.random();
+        
+        if (roll < 0.70) {
+            // 70% chance: Like
+            handleRandomLike(viewer, team);
+        } else if (roll < 0.85) {
+            // 15% chance: Rose (Damage)
+            handleRandomDamage(50, viewer, team);
+        } else if (roll < 0.94) {
+            // 9% chance: Shield
+            handleRandomShield(200, viewer, team);
+        } else {
+            // 6% chance: Nuke
+            const nukeRoll = Math.random();
+            if (nukeRoll < 0.45) {
+                // Cross Nuke
+                launchCrossNuke(viewer, team);
+            } else if (nukeRoll < 0.75) {
+                // Area Nuke
+                launchAreaNuke(viewer, team);
+            } else if (nukeRoll < 0.93) {
+                // Laser Nuke
+                launchLaserNuke(viewer, team);
+            } else {
+                // Galaxy Nuke!
+                launchMegaNuke(viewer, team);
+            }
+        }
+    }, 850); // Execute every 850ms for nice readable pace
+}
+
+function stopAutoSimulation() {
+    if (autoSimInterval) {
+        clearInterval(autoSimInterval);
+        autoSimInterval = null;
+    }
+}
+
+// ==========================================================================
+// Event Listeners Initialization
+// ==========================================================================
+document.addEventListener('DOMContentLoaded', () => {
+    initBoard();
+    renderBoard();
+
+    // Team selector configs
+    const btnBlue = document.getElementById('selectBlueTeam');
+    const btnRed = document.getElementById('selectRedTeam');
+
+    btnBlue.addEventListener('click', () => {
+        btnBlue.classList.add('active');
+        btnRed.classList.remove('active');
+        currentUserTeam = 'blue';
+    });
+
+    btnRed.addEventListener('click', () => {
+        btnRed.classList.add('active');
+        btnBlue.classList.remove('active');
+        currentUserTeam = 'red';
+    });
+
+    // 1. Likes Action Handler (Input A - Random Placement)
+    document.getElementById('actionLike').addEventListener('click', () => {
+        initAudio();
+        const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
+        handleRandomLike(user, currentUserTeam);
+    });
+
+    // 2. Target Attack & Shield Boost Handlers (No click coordinate dependencies anymore!)
+    document.getElementById('actionRose').addEventListener('click', () => {
+        initAudio();
+        const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
+        handleRandomDamage(50, user, currentUserTeam); // deals 50 damage to random enemy square
+    });
+
+    document.getElementById('actionShield').addEventListener('click', () => {
+        initAudio();
+        const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
+        handleRandomShield(200, user, currentUserTeam); // boosts shield on random owned square
+    });
+
+    // 3. Different Layers of Nukes (All target randomly)
+    document.getElementById('actionCrossNuke').addEventListener('click', () => {
+        initAudio();
+        const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
+        launchCrossNuke(user, currentUserTeam);
+    });
+
+    document.getElementById('actionAreaNuke').addEventListener('click', () => {
+        initAudio();
+        const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
+        launchAreaNuke(user, currentUserTeam);
+    });
+
+    document.getElementById('actionLaserNuke').addEventListener('click', () => {
+        initAudio();
+        const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
+        launchLaserNuke(user, currentUserTeam);
+    });
+
+    document.getElementById('actionMegaNuke').addEventListener('click', () => {
+        initAudio();
+        const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
+        launchMegaNuke(user, currentUserTeam);
+    });
+
+    // 4. Auto-Simulate Toggle Config
+    const toggleSim = document.getElementById('autoSimToggle');
+    if (toggleSim) {
+        toggleSim.addEventListener('change', () => {
+            initAudio();
+            if (toggleSim.checked) {
+                logActivity("System: Stream Auto-Simulation started! Watch the bots clash.", "system");
+                startAutoSimulation();
+            } else {
+                logActivity("System: Stream Auto-Simulation stopped.", "system");
+                stopAutoSimulation();
+            }
+        });
+    }
+
+    // 5. Cleanup animation classes
+    const container = document.querySelector('.game-container');
+    if (container) {
+        container.addEventListener('animationend', (e) => {
+            if (e.target.classList.contains('shake-screen')) {
+                e.target.classList.remove('shake-screen');
+            }
+        });
+    }
+
+    const arena = document.querySelector('.grid-arena-container');
+    if (arena) {
+        arena.addEventListener('animationend', (e) => {
+            if (e.target.classList.contains('flash-screen')) {
+                e.target.classList.remove('flash-screen');
+            }
+        });
+    }
+});

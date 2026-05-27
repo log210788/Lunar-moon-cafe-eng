@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Live Grid Conquest Simulator</title>
+    <!-- Google Fonts: Outfit (headings) & Inter (body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <!-- Sidebar: TikTok Live Event Log -->
+        <aside class="live-feed-sidebar">
+            <div class="panel-header-glass">
+                <div class="live-badge-glow">
+                    <span class="pulse-dot"></span>
+                    LIVE FEED
+                </div>
+                <h2>TikTok Activity Log</h2>
+            </div>
+            <div class="log-container" id="activityLog">
+                <div class="log-entry system">System: Game initialized. Select a square, simulate random likes, or drop nukes!</div>
+            </div>
+        </aside>
+
+        <!-- Main Section: Grid Arena -->
+        <main class="grid-arena-container">
+            <header class="arena-header">
+                <h1>TikTok Grid Conquest</h1>
+                <p>Blue vs Red Team! Likes place random squares. Use shields to block them, and trigger nukes!</p>
+            </header>
+
+            <div class="grid-board-wrapper">
+                <div class="grid-board" id="gridBoard"></div>
+            </div>
+
+            <!-- Team Stats Bar -->
+            <div class="team-stats-row">
+                <div class="team-stat blue">
+                    <span class="team-dot"></span>
+                    <span class="team-name">Blue Team:</span>
+                    <span class="stat-value" id="blueScore">0</span> squares
+                </div>
+                <div class="team-stat neutral">
+                    <span class="team-dot"></span>
+                    <span class="team-name">Neutral:</span>
+                    <span class="stat-value" id="neutralScore">36</span> squares
+                </div>
+                <div class="team-stat red">
+                    <span class="team-dot"></span>
+                    <span class="team-name">Red Team:</span>
+                    <span class="stat-value" id="redScore">0</span> squares
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Sidebar: Simulation Controller -->
+        <aside class="controller-sidebar">
+            <div class="panel-header-glass">
+                <h2>Simulation Controls</h2>
+                <p>Simulate viewer actions on your stream</p>
+            </div>
+
+            <!-- Player config -->
+            <div class="config-section">
+                <h3>1. Choose Your Team</h3>
+                <div class="team-selector">
+                    <button class="team-btn blue active" id="selectBlueTeam" data-team="blue">
+                        <span class="color-preview"></span>
+                        Blue
+                    </button>
+                    <button class="team-btn red" id="selectRedTeam" data-team="red">
+                        <span class="color-preview"></span>
+                        Red
+                    </button>
+                </div>
+                
+                <div class="input-wrap">
+                    <label for="viewerName">Viewer Username</label>
+                    <input type="text" id="viewerName" value="Gamer_Pro" autocomplete="off" spellcheck="false">
+                </div>
+
+                <div class="target-indicator" id="targetIndicator">
+                    Last Action Target: <span class="coordinate-value">None</span>
+                </div>
+            </div>
+
+            <!-- Interaction Buttons -->
+            <div class="actions-section">
+                <h3>2. Simulate Likes (Free Placement)</h3>
+                <button class="btn btn-like" id="actionLike">
+                    <span class="btn-icon">👍</span>
+                    <div class="btn-text">
+                        <strong>Send Like (Random Placement)</strong>
+                        <span>Claims or attacks a random square!</span>
+                    </div>
+                </button>
+
+                <h3 style="margin-top: 20px;">3. Simulate Boosting & Targeting</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px;">
+                    <button class="btn btn-gift" id="actionRose" data-gift="Rose" style="padding: 8px;">
+                        <span class="gift-emoji" style="font-size: 18px;">🌹</span>
+                        <strong style="font-size: 11px;">Rose (Attack)</strong>
+                        <span class="coin-badge" style="margin-bottom: 2px;">1 Coin</span>
+                        <span class="desc" style="font-size: 8px;">50 Dmg to Target</span>
+                    </button>
+
+                    <button class="btn btn-gift" id="actionShield" data-gift="Shield" style="padding: 8px;">
+                        <span class="gift-emoji" style="font-size: 18px;">💖</span>
+                        <strong style="font-size: 11px;">Shield Up</strong>
+                        <span class="coin-badge" style="margin-bottom: 2px;">5 Coins</span>
+                        <span class="desc" style="font-size: 8px;">+200 Def to Target</span>
+                    </button>
+                </div>
+
+                <h3>4. Nuke Layers (Donations)</h3>
+                <div class="gifts-grid">
+                    <button class="btn btn-gift" id="actionCrossNuke" data-gift="CrossNuke">
+                        <span class="gift-emoji">⚡</span>
+                        <strong>Cross Nuke</strong>
+                        <span class="coin-badge">10 Coins</span>
+                        <span class="desc">Conquers '+' shape around target</span>
+                    </button>
+
+                    <button class="btn btn-gift" id="actionAreaNuke" data-gift="AreaNuke">
+                        <span class="gift-emoji">💥</span>
+                        <strong>Area Nuke</strong>
+                        <span class="coin-badge">30 Coins</span>
+                        <span class="desc">Conquers 3x3 surrounding squares</span>
+                    </button>
+
+                    <button class="btn btn-gift" id="actionLaserNuke" data-gift="LaserNuke">
+                        <span class="gift-emoji">🚀</span>
+                        <strong>Laser Row/Col</strong>
+                        <span class="coin-badge">99 Coins</span>
+                        <span class="desc">Conquers whole Row & Column</span>
+                    </button>
+
+                    <button class="btn btn-gift" id="actionMegaNuke" data-gift="MegaNuke">
+                        <span class="gift-emoji">🌌</span>
+                        <strong>Galaxy Nuke</strong>
+                        <span class="coin-badge">500 Coins</span>
+                        <span class="desc">Conquers 5x5 massive grid</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Auto-Simulate Toggle -->
+            <div class="config-section" style="border-top: 1px solid var(--border-glass); margin-top: auto; padding-top: 16px; padding-bottom: 16px;">
+                <h3>Stream Autoplay (Demo)</h3>
+                <div class="audio-control-row" style="margin: 0; padding: 0; border: none; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <label class="switch">
+                            <input type="checkbox" id="autoSimToggle">
+                            <span class="slider"></span>
+                        </label>
+                        <span>Auto-Simulate Stream</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audio toggle -->
+            <div class="audio-control-row" style="margin: 0 24px; padding-top: 16px; border-top: 1px solid var(--border-glass);">
+                <label class="switch">
+                    <input type="checkbox" id="audioToggle" checked>
+                    <span class="slider"></span>
+                </label>
+                <span>Synthesizer Sound Effects</span>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Hype Alert Overlay -->
+    <div class="hype-alert-overlay" id="hypeAlert">
+        <div class="hype-alert-content">
+            <span class="hype-alert-emoji" id="hypeEmoji">🌌</span>
+            <div class="hype-alert-text">
+                <h2 id="hypeTitle">GALAXY NUKE!</h2>
+                <p id="hypeSubtitle">Gamer_Pro launched a 5x5 explosion!</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
