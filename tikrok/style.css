@@ -266,7 +266,7 @@ h1, h2, h3 {
 }
 
 .bar-bg {
-    height: 3px;
+    height: 5px;
     background-color: rgba(255, 255, 255, 0.08);
     border-radius: 10px;
     overflow: hidden;
@@ -280,8 +280,17 @@ h1, h2, h3 {
 
 .shield-bar {
     height: 100%;
-    background-color: #3b82f6;
+    background-color: #00d2ff;
+    box-shadow: 0 0 6px rgba(0, 210, 255, 0.8);
     transition: width 0.2s ease-out;
+}
+
+.shield-badge {
+    color: #00d2ff;
+    font-size: 8px;
+    font-weight: 800;
+    margin-left: 3px;
+    text-shadow: 0 0 4px rgba(0, 210, 255, 0.8);
 }
 
 /* Owner profile representation inside square */
@@ -374,18 +383,28 @@ h1, h2, h3 {
     left: 0;
     right: 0;
     bottom: 0;
-    border-radius: 8px;
-    border: 2px solid transparent;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     pointer-events: none;
     transition: var(--transition);
     opacity: 0;
+    z-index: 3;
 }
 
 .grid-square.shielded .shield-bubble-overlay {
-    border-color: #00d2ff;
-    background: radial-gradient(circle, rgba(0, 210, 255, 0.05) 50%, rgba(0, 210, 255, 0.15) 100%);
-    box-shadow: inset 0 0 12px rgba(0, 210, 255, 0.3), 0 0 8px rgba(0, 210, 255, 0.2);
+    background: radial-gradient(circle, rgba(0, 210, 255, 0.1) 40%, rgba(0, 210, 255, 0.45) 100%);
     opacity: 1;
+    animation: shieldPulse 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes shieldPulse {
+    0% {
+        opacity: 0.6;
+        filter: drop-shadow(0 0 3px rgba(0, 210, 255, 0.3));
+    }
+    100% {
+        opacity: 1;
+        filter: drop-shadow(0 0 12px rgba(0, 210, 255, 0.8));
+    }
 }
 
 /* Damage Shake Animation class */
@@ -913,5 +932,57 @@ input:checked + .slider:before {
     0% { background: radial-gradient(circle at center, rgba(245, 158, 11, 0.5) 0%, var(--bg-dark) 100%); }
     50% { background: radial-gradient(circle at center, rgba(245, 158, 11, 0.2) 0%, var(--bg-dark) 100%); }
     100% { background: radial-gradient(circle at center, rgba(16, 24, 48, 0.5) 0%, var(--bg-dark) 100%); }
+}
+
+/* Attacked visual indicator & Floating damage numbers */
+.under-attack {
+    animation: attackPulse 0.4s ease-out;
+}
+
+@keyframes attackPulse {
+    0% { transform: scale(1); filter: brightness(1.8) drop-shadow(0 0 15px #ef4444); }
+    50% { transform: scale(0.94); filter: brightness(1.5) drop-shadow(0 0 20px #ef4444); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+
+.floating-text {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-weight: 800;
+    font-size: 13px;
+    pointer-events: none;
+    z-index: 100;
+    animation: floatUp 0.8s ease-out forwards;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    font-family: var(--font-heading);
+}
+
+.floating-text.damage {
+    color: #ff0055;
+}
+
+.floating-text.shield {
+    color: #00d2ff;
+}
+
+.floating-text.heal {
+    color: #10b981;
+}
+
+@keyframes floatUp {
+    0% {
+        transform: translate(-50%, -30%) scale(0.6);
+        opacity: 0;
+    }
+    20% {
+        transform: translate(-50%, -55%) scale(1.3);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -100%) scale(0.95);
+        opacity: 0;
+    }
 }
 

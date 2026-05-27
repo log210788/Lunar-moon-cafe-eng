@@ -230,8 +230,12 @@ function renderBoard() {
             const hpPercent = (square.hp / square.maxHp) * 100;
             const shieldPercent = Math.min(100, (square.shield / 500) * 100);
 
+            const shieldBadgeHtml = square.shield > 0 
+                ? `<span class="shield-badge">🛡️${square.shield}</span>` 
+                : '';
+
             sqEl.innerHTML = `
-                <div class="square-coord">${square.coord}</div>
+                <div class="square-coord">${square.coord}${shieldBadgeHtml}</div>
                 <div class="square-owner" title="Owner: ${square.ownerName}">
                     ${avatarHtml}
                 </div>
@@ -252,7 +256,7 @@ function renderBoard() {
             });
 
             sqEl.addEventListener('animationend', () => {
-                sqEl.classList.remove('shake', 'takeover-flash');
+                sqEl.classList.remove('shake', 'takeover-flash', 'under-attack');
             });
 
             boardEl.appendChild(sqEl);
@@ -305,9 +309,29 @@ function triggerVisualFX(squareId, effect) {
     const el = document.getElementById(`square-${squareId}`);
     if (!el) return;
 
-    el.classList.remove('shake', 'takeover-flash');
+    el.classList.remove('shake', 'takeover-flash', 'under-attack');
     void el.offsetWidth; // Trigger reflow
     el.classList.add(effect);
+}
+
+function spawnFloatingText(squareId, text, type = 'damage') {
+    const sqEl = document.getElementById(`square-${squareId}`);
+    if (!sqEl) return;
+
+    const floatEl = document.createElement('div');
+    floatEl.className = `floating-text ${type}`;
+    floatEl.textContent = text;
+
+    sqEl.appendChild(floatEl);
+
+    floatEl.addEventListener('animationend', () => {
+        floatEl.remove();
+    });
+}
+
+function selectSquare(id) {
+    updateLastTargetIndicator(id);
+    renderBoard();
 }
 
 // ==========================================================================
@@ -340,22 +364,26 @@ function handleRandomLike(user, team) {
         logActivity(`👍 <b>${user}</b> liked and randomly claimed neutral square <b>${target.coord}</b> for ${team.toUpperCase()}!`, 'like');
         playSound('like');
         triggerVisualFX(randomIndex, 'takeover-flash');
+        spawnFloatingText(randomIndex, "CLAIM!", "heal");
     } else if (target.team === team) {
         // Fortify own team square
         target.hp = Math.min(100, target.hp + 20);
         logActivity(`👍 <b>${user}</b> liked and fortified owned square <b>${target.coord}</b> (+20 HP).`, 'like');
         playSound('like');
         triggerVisualFX(randomIndex, 'takeover-flash');
+        spawnFloatingText(randomIndex, "+20 HP", "heal");
     } else {
         // Attack enemy square
-        triggerVisualFX(randomIndex, 'shake');
+        triggerVisualFX(randomIndex, 'under-attack');
         if (target.shield > 0) {
             target.shield = Math.max(0, target.shield - 40);
             logActivity(`👍 <b>${user}</b> liked and randomly hit enemy shield on <b>${target.coord}</b> (-40).`, 'shield');
             playSound('damage');
+            spawnFloatingText(randomIndex, "-40 SHD", "damage");
         } else {
             target.hp = Math.max(0, target.hp - 30);
             logActivity(`👍 <b>${user}</b> liked and damaged enemy square <b>${target.coord}</b> (-30 HP).`, 'rose');
+            spawnFloatingText(randomIndex, "-30 HP", "damage");
             
             if (target.hp <= 0) {
                 const oldTeam = target.team;
@@ -383,15 +411,17 @@ function handleRandomDamage(amount, attacker, team) {
 
     const square = boardState[targetId];
     updateLastTargetIndicator(targetId);
-    triggerVisualFX(targetId, 'shake');
+    triggerVisualFX(targetId, 'under-attack');
     
     if (square.shield > 0) {
         square.shield = Math.max(0, square.shield - amount);
         logActivity(`🌹 <b>${attacker}</b> sent a Rose and randomly hit enemy shield on <b>${square.coord}</b> (-${amount})!`, 'shield');
         playSound('damage');
+        spawnFloatingText(targetId, `-${amount} SHD`, "damage");
     } else {
         square.hp = Math.max(0, square.hp - amount);
         logActivity(`🌹 <b>${attacker}</b> sent a Rose and dealt <b>${amount} dmg</b> to <b>${square.coord}</b>!`, 'rose');
+        spawnFloatingText(targetId, `-${amount} HP`, "damage");
         
         if (square.hp <= 0) {
             claimSingleSquare(targetId, attacker, team);
@@ -419,6 +449,8 @@ function handleRandomShield(amount, user, team) {
     square.shield = Math.min(999, square.shield + amount);
     logActivity(`💖 <b>${user}</b> sent a Heart Shield and boosted owned square <b>${square.coord}</b> (+${amount} Shield)!`, 'shield');
     playSound('shield');
+    triggerVisualFX(targetId, 'takeover-flash');
+    spawnFloatingText(targetId, `+${amount} SHD`, "shield");
     renderBoard();
 }
 
@@ -437,6 +469,7 @@ function claimSingleSquare(squareId, user, team) {
     }
     
     triggerVisualFX(squareId, 'takeover-flash');
+    spawnFloatingText(squareId, oldTeam !== 'neutral' ? "CONQUERED!" : "CLAIMED!", "heal");
 }
 
 // ==========================================================================
