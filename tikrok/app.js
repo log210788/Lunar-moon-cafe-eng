@@ -191,51 +191,60 @@ function initBoard() {
 // ==========================================================================
 function renderBoard() {
     const boardEl = document.getElementById('gridBoard');
-    boardEl.innerHTML = '';
 
     for (let r = 0; r < GRID_SIZE; r++) {
         for (let c = 0; c < GRID_SIZE; c++) {
             const index = r * GRID_SIZE + c;
             const square = boardState[index];
 
-            const sqEl = document.createElement('div');
-            sqEl.className = 'grid-square';
-            sqEl.dataset.id = square.id;
-            sqEl.id = `square-${square.id}`;
+            let sqEl = document.getElementById(`square-${square.id}`);
 
-            // Calculate precise absolute positions for Civ 5 grid spacing
-            const left = c * 82 + (r % 2 === 1 ? 41 : 0);
-            const top = r * 69 + 12; // Shifted down by 12px to prevent top protrusion
-            const zIndex = 6 - r; // Earlier rows sit on top of later rows
+            if (!sqEl) {
+                // Initial render: Create the element once
+                sqEl = document.createElement('div');
+                sqEl.className = 'grid-square';
+                sqEl.id = `square-${square.id}`;
+                sqEl.dataset.id = square.id;
 
-            sqEl.style.left = `${left}px`;
-            sqEl.style.top = `${top}px`;
-            sqEl.style.zIndex = zIndex;
+                const left = c * 82 + (r % 2 === 1 ? 41 : 0);
+                const top = r * 69 + 12;
+                const zIndex = 6 - r;
 
-            // Team Owner Styles
-            if (square.team === 'blue') sqEl.classList.add('blue-owned');
-            if (square.team === 'red') sqEl.classList.add('red-owned');
-            
-            // Highlight last targeted action square
-            if (square.id === lastTargetId) sqEl.classList.add('selected');
-            
-            // Shield bubble active
-            if (square.shield > 0) sqEl.classList.add('shielded');
-            if (square.immune) sqEl.classList.add('immune');
-            
-            // Active visual effects
-            if (square.activeEffect) {
-                sqEl.classList.add(square.activeEffect);
+                sqEl.style.left = `${left}px`;
+                sqEl.style.top = `${top}px`;
+                sqEl.style.zIndex = zIndex;
+
+                sqEl.addEventListener('click', () => {
+                    selectSquare(square.id);
+                });
+
+                sqEl.addEventListener('animationend', (e) => {
+                    if (e.target !== sqEl) return; // ignore children animationend events bubbling up
+                    const effects = ['shake', 'takeover-flash', 'under-attack', 'deflected'];
+                    effects.forEach(eff => {
+                        if (sqEl.classList.contains(eff)) {
+                            sqEl.classList.remove(eff);
+                            square.activeEffect = null;
+                        }
+                    });
+                });
+
+                boardEl.appendChild(sqEl);
             }
 
-            // Form profile initials or image
-            const avatarHtml = square.team === 'neutral'
-                ? 'SYS'
-                : `<img class="user-avatar" src="${square.profilePicUrl}" alt="${square.ownerName}">`;
-            
-            const usernameText = square.team === 'neutral' ? 'System' : square.ownerName;
+            // Sync Classes
+            sqEl.classList.toggle('blue-owned', square.team === 'blue');
+            sqEl.classList.toggle('red-owned', square.team === 'red');
+            sqEl.classList.toggle('selected', square.id === lastTargetId);
+            sqEl.classList.toggle('shielded', square.shield > 0);
+            sqEl.classList.toggle('immune', square.immune);
 
-            // Calculate health widths
+            // Sync active animation classes
+            ['shake', 'takeover-flash', 'under-attack', 'deflected'].forEach(eff => {
+                sqEl.classList.toggle(eff, square.activeEffect === eff);
+            });
+
+            // Update details
             const hpPercent = (square.hp / square.maxHp) * 100;
             const shieldPercent = square.immune ? (square.immuneTimeLeft / 60) * 100 : Math.min(100, (square.shield / 500) * 100);
 
@@ -246,44 +255,66 @@ function renderBoard() {
                 shieldBadgeHtml = `<span class="shield-badge">🛡️${square.shield}</span>`;
             }
 
-            sqEl.innerHTML = `
-                <div class="square-coord">${square.coord}${shieldBadgeHtml}</div>
-                <div class="square-owner" title="Owner: ${square.ownerName}">
-                    ${avatarHtml}
-                </div>
-                <div class="username-label">${usernameText}</div>
-                
-                <!-- Hexagonal HUD Perimeter Overlay -->
-                <svg class="hex-hud-svg" viewBox="0 0 80 92">
-                    <!-- Health Outer HUD Track & Bars -->
-                    <polygon class="hud-path hp-track" points="40,3.5 77,24.8 77,67.2 40,88.5 3,67.2 3,24.8" />
-                    <polygon class="hud-path hp-catchup" points="40,3.5 77,24.8 77,67.2 40,88.5 3,67.2 3,24.8" style="stroke-dasharray: 254; stroke-dashoffset: ${254 * (1 - hpPercent/100)}" />
-                    <polygon class="hud-path hp-fill" points="40,3.5 77,24.8 77,67.2 40,88.5 3,67.2 3,24.8" style="stroke-dasharray: 254; stroke-dashoffset: ${254 * (1 - hpPercent/100)}" />
+            // Build inner HTML structure only on first load
+            if (!sqEl.querySelector('.square-coord')) {
+                sqEl.innerHTML = `
+                    <div class="square-coord"></div>
+                    <div class="square-owner"></div>
+                    <div class="username-label"></div>
                     
-                    <!-- Shield Inner HUD Track & Bars -->
-                    <polygon class="hud-path shd-track" points="40,8.3 72.8,27.1 72.8,64.9 40,83.7 7.2,64.9 7.2,27.1" />
-                    <polygon class="hud-path shd-catchup" points="40,8.3 72.8,27.1 72.8,64.9 40,83.7 7.2,64.9 7.2,27.1" style="stroke-dasharray: 227; stroke-dashoffset: ${227 * (1 - shieldPercent/100)}" />
-                    <polygon class="hud-path shd-fill" points="40,8.3 72.8,27.1 72.8,64.9 40,83.7 7.2,64.9 7.2,27.1" style="stroke-dasharray: 227; stroke-dashoffset: ${227 * (1 - shieldPercent/100)}" />
-                </svg>
-                <div class="shield-bubble-overlay"></div>
-            `;
+                    <!-- Hexagonal HUD Perimeter Overlay -->
+                    <svg class="hex-hud-svg" viewBox="0 0 80 92">
+                        <polygon class="hud-path hp-track" points="40,3.5 77,24.8 77,67.2 40,88.5 3,67.2 3,24.8" />
+                        <polygon class="hud-path hp-catchup" points="40,3.5 77,24.8 77,67.2 40,88.5 3,67.2 3,24.8" />
+                        <polygon class="hud-path hp-fill" points="40,3.5 77,24.8 77,67.2 40,88.5 3,67.2 3,24.8" />
+                        
+                        <polygon class="hud-path shd-track" points="40,8.3 72.8,27.1 72.8,64.9 40,83.7 7.2,64.9 7.2,27.1" />
+                        <polygon class="hud-path shd-catchup" points="40,8.3 72.8,27.1 72.8,64.9 40,83.7 7.2,64.9 7.2,27.1" />
+                        <polygon class="hud-path shd-fill" points="40,8.3 72.8,27.1 72.8,64.9 40,83.7 7.2,64.9 7.2,27.1" />
+                    </svg>
+                    <div class="shield-bubble-overlay"></div>
+                `;
+            }
 
-            sqEl.addEventListener('click', () => {
-                selectSquare(square.id);
-            });
+            // Update DOM text/HTML values selectively
+            const coordEl = sqEl.querySelector('.square-coord');
+            const expectedCoordHtml = `${square.coord}${shieldBadgeHtml}`;
+            if (coordEl.innerHTML !== expectedCoordHtml) {
+                coordEl.innerHTML = expectedCoordHtml;
+            }
 
-            sqEl.addEventListener('animationend', (e) => {
-                if (e.target !== sqEl) return; // ignore children animationend events bubbling up
-                const effects = ['shake', 'takeover-flash', 'under-attack', 'deflected'];
-                effects.forEach(eff => {
-                    if (sqEl.classList.contains(eff)) {
-                        sqEl.classList.remove(eff);
-                        square.activeEffect = null;
-                    }
-                });
-            });
+            const avatarHtml = square.team === 'neutral'
+                ? 'SYS'
+                : `<img class="user-avatar" src="${square.profilePicUrl}" alt="${square.ownerName}">`;
+            
+            const ownerEl = sqEl.querySelector('.square-owner');
+            ownerEl.title = `Owner: ${square.ownerName}`;
+            if (ownerEl.innerHTML !== avatarHtml) {
+                ownerEl.innerHTML = avatarHtml;
+            }
 
-            boardEl.appendChild(sqEl);
+            const usernameEl = sqEl.querySelector('.username-label');
+            const expectedUsername = square.team === 'neutral' ? 'System' : square.ownerName;
+            if (usernameEl.textContent !== expectedUsername) {
+                usernameEl.textContent = expectedUsername;
+            }
+
+            // Update SVGs style offsets directly
+            const hpOffset = 254 * (1 - hpPercent / 100);
+            const hpFill = sqEl.querySelector('.hp-fill');
+            const hpCatchup = sqEl.querySelector('.hp-catchup');
+            hpFill.style.strokeDasharray = '254';
+            hpFill.style.strokeDashoffset = hpOffset.toString();
+            hpCatchup.style.strokeDasharray = '254';
+            hpCatchup.style.strokeDashoffset = hpOffset.toString();
+
+            const shdOffset = 227 * (1 - shieldPercent / 100);
+            const shdFill = sqEl.querySelector('.shd-fill');
+            const shdCatchup = sqEl.querySelector('.shd-catchup');
+            shdFill.style.strokeDasharray = '227';
+            shdFill.style.strokeDashoffset = shdOffset.toString();
+            shdCatchup.style.strokeDasharray = '227';
+            shdCatchup.style.strokeDashoffset = shdOffset.toString();
         }
     }
 
