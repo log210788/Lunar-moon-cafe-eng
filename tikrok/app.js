@@ -158,6 +158,7 @@ const GRID_SIZE = 6;
 let boardState = [];
 let lastTargetId = -1; // stores the target of the last simulated action
 let currentUserTeam = 'blue';
+let activePlayers = {}; // stores active viewers and their board statuses
 
 // Generate A1, B2 labels from index
 function getCoordLabel(index) {
@@ -318,6 +319,7 @@ function renderBoard() {
         }
     }
 
+    updatePlayerRoster();
     updateStats();
 }
 
@@ -455,6 +457,128 @@ function selectSquare(id) {
     renderBoard();
 }
 
+// Active Viewer Lobby Registration
+function registerActivePlayer(username, team) {
+    if (!username || username === 'System' || username === 'Anonymous') return;
+    if (!activePlayers[username]) {
+        activePlayers[username] = {
+            name: username,
+            team: team,
+            avatar: `https://robohash.org/${encodeURIComponent(username)}?set=set4`,
+            squaresCount: 0
+        };
+    }
+}
+
+// Recalculate owned squares for the Roster
+function updatePlayerRoster() {
+    // Reset counts
+    Object.values(activePlayers).forEach(p => p.squaresCount = 0);
+    
+    // Count owned squares and dynamically register any owners we missed (e.g. from autoplay bots)
+    boardState.forEach(s => {
+        if (s.team !== 'neutral' && s.ownerName !== 'System') {
+            registerActivePlayer(s.ownerName, s.team);
+            if (activePlayers[s.ownerName]) {
+                activePlayers[s.ownerName].squaresCount++;
+            }
+        }
+    });
+    
+    renderPlayerRoster();
+}
+
+// Render active player lobby in the sidebar
+function renderPlayerRoster() {
+    const rosterEl = document.getElementById('playerRoster');
+    if (!rosterEl) return;
+
+    const players = Object.values(activePlayers);
+
+    if (players.length === 0) {
+        rosterEl.innerHTML = `<div class="leaderboard-empty" style="font-size: 12px; text-align: center; color: var(--text-muted);">No active players in lobby yet.<br>Send an action to join!</div>`;
+        return;
+    }
+
+    // Sort: ON MAP first (descending squaresCount), then Lobby alphabetically
+    players.sort((a, b) => {
+        if (a.squaresCount !== b.squaresCount) {
+            return b.squaresCount - a.squaresCount; // higher count first
+        }
+        return a.name.localeCompare(b.name);
+    });
+
+    rosterEl.innerHTML = players.map(p => {
+        const isOnMap = p.squaresCount > 0;
+        const statusText = isOnMap ? `ON MAP (${p.squaresCount})` : 'LOBBY';
+        const badgeClass = isOnMap ? 'on-map' : 'lobby';
+        const teamClass = p.team === 'blue' ? 'blue' : 'red';
+
+        return `
+            <div class="roster-item">
+                <div class="roster-player-info">
+                    <img class="roster-avatar ${teamClass}-border" src="${p.avatar}" alt="${p.name}">
+                    <span class="roster-name ${teamClass}-text">${p.name}</span>
+                </div>
+                <span class="roster-status-badge ${badgeClass}">${statusText}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+// Launch flying avatar projectile from team side
+function launchProjectile(user, team, targetId, callback) {
+    const boardEl = document.getElementById('gridBoard');
+    if (!boardEl) {
+        callback();
+        return;
+    }
+
+    const square = boardState[targetId];
+    if (!square) {
+        callback();
+        return;
+    }
+
+    const row = Math.floor(targetId / GRID_SIZE);
+    const col = targetId % GRID_SIZE;
+
+    // Calculate center coordinates of target hexagon relative to gridBoard
+    const targetX = col * 82 + (row % 2 === 1 ? 41 : 0) + 40 - 16; // X center minus projectile half-width (16px)
+    const targetY = row * 69 + 12 + 46 - 16; // Y center minus projectile half-height (16px)
+
+    // Starting positions based on team
+    const startX = team === 'blue' ? -80 : 620;
+    const startY = 230; // middle height
+
+    // Create projectile div
+    const projEl = document.createElement('div');
+    projEl.className = `flying-projectile ${team}-proj`;
+    
+    const avatarUrl = `https://robohash.org/${encodeURIComponent(user)}?set=set4`;
+    projEl.innerHTML = `<img src="${avatarUrl}" alt="${user}">`;
+
+    // Initial position
+    projEl.style.left = `${startX}px`;
+    projEl.style.top = `${startY}px`;
+
+    boardEl.appendChild(projEl);
+
+    // Force reflow
+    void projEl.offsetWidth;
+
+    // Animate to target coordinates
+    projEl.classList.add('moving');
+    projEl.style.left = `${targetX}px`;
+    projEl.style.top = `${targetY}px`;
+
+    // Execute callback and clean up on landing (600ms)
+    setTimeout(() => {
+        projEl.remove();
+        callback();
+    }, 600);
+}
+
 // ==========================================================================
 // Gameplay Mechanics Handlers (All Actions are Randomly Target-based)
 // ==========================================================================
@@ -479,60 +603,64 @@ function handleRandomLike(user, team) {
     const target = boardState[randomIndex];
     updateLastTargetIndicator(randomIndex);
 
-    // Block attacks on immune enemy squares
-    if (target.team !== 'neutral' && target.team !== team && target.immune) {
-        logActivity(`🛡️ <b>${user}</b> liked but enemy square <b>${target.coord}</b> is IMMUNE! (BLOCKED)`, 'shield');
-        playSound('shield');
-        triggerVisualFX(randomIndex, 'deflected');
-        spawnFloatingText(randomIndex, "BLOCKED!", "immune");
-        spawnParticles(randomIndex, 'gold');
-        renderBoard();
-        return;
-    }
+    registerActivePlayer(user, team);
 
-    if (target.team === 'neutral') {
-        // Claim neutral instantly
-        setSquareOwner(target, user, team);
-        logActivity(`👍 <b>${user}</b> liked and randomly claimed neutral square <b>${target.coord}</b> for ${team.toUpperCase()}!`, 'like');
-        playSound('like');
-        triggerVisualFX(randomIndex, 'takeover-flash');
-        spawnFloatingText(randomIndex, "CLAIM!", "heal");
-        spawnParticles(randomIndex, team === 'blue' ? 'cyan' : 'red');
-    } else if (target.team === team) {
-        // Fortify own team square
-        target.hp = Math.min(100, target.hp + 20);
-        logActivity(`👍 <b>${user}</b> liked and fortified owned square <b>${target.coord}</b> (+20 HP).`, 'like');
-        playSound('like');
-        triggerVisualFX(randomIndex, 'takeover-flash');
-        spawnFloatingText(randomIndex, "+20 HP", "heal");
-        spawnParticles(randomIndex, 'green');
-    } else {
-        // Attack enemy square
-        triggerVisualFX(randomIndex, 'under-attack');
-        if (target.shield > 0) {
-            target.shield = Math.max(0, target.shield - 40);
-            logActivity(`👍 <b>${user}</b> liked and randomly hit enemy shield on <b>${target.coord}</b> (-40).`, 'shield');
-            playSound('damage');
-            spawnFloatingText(randomIndex, "-40 SHD", "damage");
-            spawnParticles(randomIndex, 'cyan');
+    launchProjectile(user, team, randomIndex, () => {
+        // Block attacks on immune enemy squares
+        if (target.team !== 'neutral' && target.team !== team && target.immune) {
+            logActivity(`🛡️ <b>${user}</b> liked but enemy square <b>${target.coord}</b> is IMMUNE! (BLOCKED)`, 'shield');
+            playSound('shield');
+            triggerVisualFX(randomIndex, 'deflected');
+            spawnFloatingText(randomIndex, "BLOCKED!", "immune");
+            spawnParticles(randomIndex, 'gold');
+            renderBoard();
+            return;
+        }
+
+        if (target.team === 'neutral') {
+            // Claim neutral instantly
+            setSquareOwner(target, user, team);
+            logActivity(`👍 <b>${user}</b> liked and randomly claimed neutral square <b>${target.coord}</b> for ${team.toUpperCase()}!`, 'like');
+            playSound('like');
+            triggerVisualFX(randomIndex, 'takeover-flash');
+            spawnFloatingText(randomIndex, "CLAIM!", "heal");
+            spawnParticles(randomIndex, team === 'blue' ? 'cyan' : 'red');
+        } else if (target.team === team) {
+            // Fortify own team square
+            target.hp = Math.min(100, target.hp + 20);
+            logActivity(`👍 <b>${user}</b> liked and fortified owned square <b>${target.coord}</b> (+20 HP).`, 'like');
+            playSound('like');
+            triggerVisualFX(randomIndex, 'takeover-flash');
+            spawnFloatingText(randomIndex, "+20 HP", "heal");
+            spawnParticles(randomIndex, 'green');
         } else {
-            target.hp = Math.max(0, target.hp - 30);
-            logActivity(`👍 <b>${user}</b> liked and damaged enemy square <b>${target.coord}</b> (-30 HP).`, 'rose');
-            spawnFloatingText(randomIndex, "-30 HP", "damage");
-            spawnParticles(randomIndex, 'red');
-            
-            if (target.hp <= 0) {
-                const oldTeam = target.team;
-                setSquareOwner(target, user, team);
-                logActivity(`🚩 Conquered! <b>${target.coord}</b> flips to ${team.toUpperCase()} team from ${oldTeam.toUpperCase()} via likes!`, 'nuke');
-                playSound('nuke-cross');
-                triggerVisualFX(randomIndex, 'takeover-flash');
-            } else {
+            // Attack enemy square
+            triggerVisualFX(randomIndex, 'under-attack');
+            if (target.shield > 0) {
+                target.shield = Math.max(0, target.shield - 40);
+                logActivity(`👍 <b>${user}</b> liked and randomly hit enemy shield on <b>${target.coord}</b> (-40).`, 'shield');
                 playSound('damage');
+                spawnFloatingText(randomIndex, "-40 SHD", "damage");
+                spawnParticles(randomIndex, 'cyan');
+            } else {
+                target.hp = Math.max(0, target.hp - 30);
+                logActivity(`👍 <b>${user}</b> liked and damaged enemy square <b>${target.coord}</b> (-30 HP).`, 'rose');
+                spawnFloatingText(randomIndex, "-30 HP", "damage");
+                spawnParticles(randomIndex, 'red');
+                
+                if (target.hp <= 0) {
+                    const oldTeam = target.team;
+                    setSquareOwner(target, user, team);
+                    logActivity(`🚩 Conquered! <b>${target.coord}</b> flips to ${team.toUpperCase()} team from ${oldTeam.toUpperCase()} via likes!`, 'nuke');
+                    playSound('nuke-cross');
+                    triggerVisualFX(randomIndex, 'takeover-flash');
+                } else {
+                    playSound('damage');
+                }
             }
         }
-    }
-    renderBoard();
+        renderBoard();
+    });
 }
 
 // Rose Attack donation (Chooses a Random Enemy Square)
@@ -549,39 +677,42 @@ function handleRandomDamage(amount, attacker, team) {
     const square = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
-    // Block attack if square is immune
-    if (square.immune) {
-        logActivity(`🛡️ <b>${attacker}</b> sent a Rose but enemy square <b>${square.coord}</b> is IMMUNE! (BLOCKED)`, 'shield');
-        playSound('shield');
-        triggerVisualFX(targetId, 'deflected');
-        spawnFloatingText(targetId, "BLOCKED!", "immune");
-        spawnParticles(targetId, 'gold');
-        renderBoard();
-        return;
-    }
-    
-    triggerVisualFX(targetId, 'under-attack');
-    
-    if (square.shield > 0) {
-        square.shield = Math.max(0, square.shield - amount);
-        logActivity(`🌹 <b>${attacker}</b> sent a Rose and randomly hit enemy shield on <b>${square.coord}</b> (-${amount})!`, 'shield');
-        playSound('damage');
-        spawnFloatingText(targetId, `-${amount} SHD`, "damage");
-        spawnParticles(targetId, 'cyan');
-    } else {
-        square.hp = Math.max(0, square.hp - amount);
-        logActivity(`🌹 <b>${attacker}</b> sent a Rose and dealt <b>${amount} dmg</b> to <b>${square.coord}</b>!`, 'rose');
-        spawnFloatingText(targetId, `-${amount} HP`, "damage");
-        spawnParticles(targetId, 'red');
-        
-        if (square.hp <= 0) {
-            claimSingleSquare(targetId, attacker, team);
-        } else {
-            playSound('damage');
-        }
-    }
+    registerActivePlayer(attacker, team);
 
-    renderBoard();
+    launchProjectile(attacker, team, targetId, () => {
+        // Block attack if square is immune
+        if (square.immune) {
+            logActivity(`🛡️ <b>${attacker}</b> sent a Rose but enemy square <b>${square.coord}</b> is IMMUNE! (BLOCKED)`, 'shield');
+            playSound('shield');
+            triggerVisualFX(targetId, 'deflected');
+            spawnFloatingText(targetId, "BLOCKED!", "immune");
+            spawnParticles(targetId, 'gold');
+            renderBoard();
+            return;
+        }
+        
+        triggerVisualFX(targetId, 'under-attack');
+        
+        if (square.shield > 0) {
+            square.shield = Math.max(0, square.shield - amount);
+            logActivity(`🌹 <b>${attacker}</b> sent a Rose and randomly hit enemy shield on <b>${square.coord}</b> (-${amount})!`, 'shield');
+            playSound('damage');
+            spawnFloatingText(targetId, `-${amount} SHD`, "damage");
+            spawnParticles(targetId, 'cyan');
+        } else {
+            square.hp = Math.max(0, square.hp - amount);
+            logActivity(`🌹 <b>${attacker}</b> sent a Rose and dealt <b>${amount} dmg</b> to <b>${square.coord}</b>!`, 'rose');
+            spawnFloatingText(targetId, `-${amount} HP`, "damage");
+            spawnParticles(targetId, 'red');
+            
+            if (square.hp <= 0) {
+                claimSingleSquare(targetId, attacker, team);
+            } else {
+                playSound('damage');
+            }
+        }
+        renderBoard();
+    });
 }
 
 // Boost Shield donation (Chooses a Random Owned Square)
@@ -605,38 +736,42 @@ function handleRandomShield(amount, user, team) {
     const square = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
-    if (square.immune) {
-        // Refresh immunity timer to 60s
-        square.immuneTimeLeft = 60;
-        logActivity(`💖 <b>${user}</b> refreshed IMMUNITY timer on square <b>${square.coord}</b>!`, 'shield');
-        playSound('shield');
-        triggerVisualFX(targetId, 'takeover-flash');
-        spawnFloatingText(targetId, "REFRESH", "immune");
-        spawnParticles(targetId, 'gold');
-        renderBoard();
-        return;
-    }
+    registerActivePlayer(user, team);
 
-    // Upgrade shield
-    square.shield = Math.min(500, square.shield + amount);
-    
-    if (square.shield >= 500) {
-        square.immune = true;
-        square.immuneTimeLeft = 60;
-        logActivity(`👑 <b>SUPERCHARGE!</b> Square <b>${square.coord}</b> has achieved a FULL shield rotation and is now <b>IMMUNE for 60 seconds</b>!`, 'nuke');
-        playSound('shield');
-        triggerVisualFX(targetId, 'takeover-flash');
-        spawnFloatingText(targetId, "IMMUNE!", "immune");
-        spawnParticles(targetId, 'gold');
-        triggerHypeAlert("IMMUNITY TRIGGERED!", `Square ${square.coord} is now IMMUNE for 60s!`, "👑", false);
-    } else {
-        logActivity(`💖 <b>${user}</b> sent a Heart Shield and boosted owned square <b>${square.coord}</b> (+${amount} Shield)!`, 'shield');
-        playSound('shield');
-        triggerVisualFX(targetId, 'takeover-flash');
-        spawnFloatingText(targetId, `+${amount} SHD`, "shield");
-        spawnParticles(targetId, 'cyan');
-    }
-    renderBoard();
+    launchProjectile(user, team, targetId, () => {
+        if (square.immune) {
+            // Refresh immunity timer to 60s
+            square.immuneTimeLeft = 60;
+            logActivity(`💖 <b>${user}</b> refreshed IMMUNITY timer on square <b>${square.coord}</b>!`, 'shield');
+            playSound('shield');
+            triggerVisualFX(targetId, 'takeover-flash');
+            spawnFloatingText(targetId, "REFRESH", "immune");
+            spawnParticles(targetId, 'gold');
+            renderBoard();
+            return;
+        }
+
+        // Upgrade shield
+        square.shield = Math.min(500, square.shield + amount);
+        
+        if (square.shield >= 500) {
+            square.immune = true;
+            square.immuneTimeLeft = 60;
+            logActivity(`👑 <b>SUPERCHARGE!</b> Square <b>${square.coord}</b> has achieved a FULL shield rotation and is now <b>IMMUNE for 60 seconds</b>!`, 'nuke');
+            playSound('shield');
+            triggerVisualFX(targetId, 'takeover-flash');
+            spawnFloatingText(targetId, "IMMUNE!", "immune");
+            spawnParticles(targetId, 'gold');
+            triggerHypeAlert("IMMUNITY TRIGGERED!", `Square ${square.coord} is now IMMUNE for 60s!`, "👑", false);
+        } else {
+            logActivity(`💖 <b>${user}</b> sent a Heart Shield and boosted owned square <b>${square.coord}</b> (+${amount} Shield)!`, 'shield');
+            playSound('shield');
+            triggerVisualFX(targetId, 'takeover-flash');
+            spawnFloatingText(targetId, `+${amount} SHD`, "shield");
+            spawnParticles(targetId, 'cyan');
+        }
+        renderBoard();
+    });
 }
 
 // Helper to overwrite a single square
@@ -679,28 +814,32 @@ function launchCrossNuke(user, team) {
     const target = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
-    playSound('nuke-cross');
-    logActivity(`⚡ <b>${user}</b> sent a TikTok Bolt, launching a <b>Cross Nuke</b> centered at <b>${target.coord}</b>!`, 'nuke');
+    registerActivePlayer(user, team);
 
-    const col = targetId % GRID_SIZE;
-    const row = Math.floor(targetId / GRID_SIZE);
+    launchProjectile(user, team, targetId, () => {
+        playSound('nuke-cross');
+        logActivity(`⚡ <b>${user}</b> sent a TikTok Bolt, launching a <b>Cross Nuke</b> centered at <b>${target.coord}</b>!`, 'nuke');
 
-    const coordinates = [
-        { r: row, c: col },       // Center
-        { r: row - 1, c: col },   // Up
-        { r: row + 1, c: col },   // Down
-        { r: row, c: col - 1 },   // Left
-        { r: row, c: col + 1 }    // Right
-    ];
+        const col = targetId % GRID_SIZE;
+        const row = Math.floor(targetId / GRID_SIZE);
 
-    coordinates.forEach(coord => {
-        if (coord.r >= 0 && coord.r < GRID_SIZE && coord.c >= 0 && coord.c < GRID_SIZE) {
-            const id = coord.r * GRID_SIZE + coord.c;
-            claimSingleSquare(id, user, team);
-        }
+        const coordinates = [
+            { r: row, c: col },       // Center
+            { r: row - 1, c: col },   // Up
+            { r: row + 1, c: col },   // Down
+            { r: row, c: col - 1 },   // Left
+            { r: row, c: col + 1 }    // Right
+        ];
+
+        coordinates.forEach(coord => {
+            if (coord.r >= 0 && coord.r < GRID_SIZE && coord.c >= 0 && coord.c < GRID_SIZE) {
+                const id = coord.r * GRID_SIZE + coord.c;
+                claimSingleSquare(id, user, team);
+            }
+        });
+
+        renderBoard();
     });
-
-    renderBoard();
 }
 
 // Layer 2: Area Nuke (Bomb - Cost: 30 Coins)
@@ -709,22 +848,26 @@ function launchAreaNuke(user, team) {
     const target = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
-    playSound('nuke-area');
-    logActivity(`💥 <b>${user}</b> sent a Bomb, launching a <b>3x3 Area Nuke</b> centered on <b>${target.coord}</b>!`, 'nuke');
+    registerActivePlayer(user, team);
 
-    const col = targetId % GRID_SIZE;
-    const row = Math.floor(targetId / GRID_SIZE);
+    launchProjectile(user, team, targetId, () => {
+        playSound('nuke-area');
+        logActivity(`💥 <b>${user}</b> sent a Bomb, launching a <b>3x3 Area Nuke</b> centered on <b>${target.coord}</b>!`, 'nuke');
 
-    for (let r = row - 1; r <= row + 1; r++) {
-        for (let c = col - 1; c <= col + 1; c++) {
-            if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
-                const id = r * GRID_SIZE + c;
-                claimSingleSquare(id, user, team);
+        const col = targetId % GRID_SIZE;
+        const row = Math.floor(targetId / GRID_SIZE);
+
+        for (let r = row - 1; r <= row + 1; r++) {
+            for (let c = col - 1; c <= col + 1; c++) {
+                if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+                    const id = r * GRID_SIZE + c;
+                    claimSingleSquare(id, user, team);
+                }
             }
         }
-    }
 
-    renderBoard();
+        renderBoard();
+    });
 }
 
 // Layer 3: Laser Column/Row Nuke (Rocket - Cost: 99 Coins)
@@ -733,23 +876,27 @@ function launchLaserNuke(user, team) {
     const target = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
-    playSound('nuke-laser');
-    logActivity(`🚀 <b>${user}</b> sent a Rocket, firing a <b>Row & Column Laser</b> centered on <b>${target.coord}</b>!`, 'nuke');
-    triggerHypeAlert("LASER SWEEP!", `${user} launched a Row & Column Rocket!`, "🚀", false);
+    registerActivePlayer(user, team);
 
-    const col = targetId % GRID_SIZE;
-    const row = Math.floor(targetId / GRID_SIZE);
+    launchProjectile(user, team, targetId, () => {
+        playSound('nuke-laser');
+        logActivity(`🚀 <b>${user}</b> sent a Rocket, firing a <b>Row & Column Laser</b> centered on <b>${target.coord}</b>!`, 'nuke');
+        triggerHypeAlert("LASER SWEEP!", `${user} launched a Row & Column Rocket!`, "🚀", false);
 
-    for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
-        const c = i % GRID_SIZE;
-        const r = Math.floor(i / GRID_SIZE);
-        
-        if (c === col || r === row) {
-            claimSingleSquare(i, user, team);
+        const col = targetId % GRID_SIZE;
+        const row = Math.floor(targetId / GRID_SIZE);
+
+        for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+            const c = i % GRID_SIZE;
+            const r = Math.floor(i / GRID_SIZE);
+            
+            if (c === col || r === row) {
+                claimSingleSquare(i, user, team);
+            }
         }
-    }
 
-    renderBoard();
+        renderBoard();
+    });
 }
 
 // Layer 4: Mega Galaxy Nuke (Galaxy - Cost: 500 Coins)
@@ -758,23 +905,27 @@ function launchMegaNuke(user, team) {
     const target = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
-    playSound('nuke-mega');
-    logActivity(`🌌 <b>${user}</b> sent a Universe, launching a massive <b>5x5 Galaxy Nuke</b> centered at <b>${target.coord}</b>!`, 'nuke');
-    triggerHypeAlert("GALAXY NUKE!", `${user} sent a UNIVERSE: 5x5 explosion!`, "🌌", true);
+    registerActivePlayer(user, team);
 
-    const col = targetId % GRID_SIZE;
-    const row = Math.floor(targetId / GRID_SIZE);
+    launchProjectile(user, team, targetId, () => {
+        playSound('nuke-mega');
+        logActivity(`🌌 <b>${user}</b> sent a Universe, launching a massive <b>5x5 Galaxy Nuke</b> centered at <b>${target.coord}</b>!`, 'nuke');
+        triggerHypeAlert("GALAXY NUKE!", `${user} sent a UNIVERSE: 5x5 explosion!`, "🌌", true);
 
-    for (let r = row - 2; r <= row + 2; r++) {
-        for (let c = col - 2; c <= col + 2; c++) {
-            if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
-                const id = r * GRID_SIZE + c;
-                claimSingleSquare(id, user, team);
+        const col = targetId % GRID_SIZE;
+        const row = Math.floor(targetId / GRID_SIZE);
+
+        for (let r = row - 2; r <= row + 2; r++) {
+            for (let c = col - 2; c <= col + 2; c++) {
+                if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+                    const id = r * GRID_SIZE + c;
+                    claimSingleSquare(id, user, team);
+                }
             }
         }
-    }
 
-    renderBoard();
+        renderBoard();
+    });
 }
 
 // ==========================================================================

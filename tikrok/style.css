@@ -1162,3 +1162,107 @@ input:checked + .slider:before {
     }
 }
 
+/* Flying projectile avatar */
+.flying-projectile {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+    pointer-events: none;
+    z-index: 600;
+    transition: left 0.6s cubic-bezier(0.25, 1, 0.5, 1), top 0.6s cubic-bezier(0.25, 1, 0.5, 1), transform 0.6s ease;
+    transform: scale(0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #0b1120;
+    overflow: hidden;
+}
+
+.flying-projectile.moving {
+    transform: scale(1.1) rotate(360deg);
+}
+
+.flying-projectile.blue-proj {
+    border-color: var(--blue-team);
+    box-shadow: 0 0 15px var(--blue-team-glow);
+}
+
+.flying-projectile.red-proj {
+    border-color: var(--red-team);
+    box-shadow: 0 0 15px var(--red-team-glow);
+}
+
+.flying-projectile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Active Players Lobby Roster Styles */
+.roster-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: 8px;
+    padding: 8px 12px;
+    transition: var(--transition);
+}
+
+.roster-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-glass-active);
+}
+
+.roster-player-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.roster-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1.5px solid var(--neutral-team);
+    background-color: #1f2937;
+    object-fit: cover;
+    display: block;
+}
+
+.roster-avatar.blue-border { border-color: var(--blue-team); }
+.roster-avatar.red-border { border-color: var(--red-team); }
+
+.roster-name {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.roster-name.blue-text { color: var(--blue-team); }
+.roster-name.red-text { color: var(--red-team); }
+
+.roster-status-badge {
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.roster-status-badge.on-map {
+    color: #10b981;
+    background-color: rgba(16, 185, 129, 0.1);
+    box-shadow: inset 0 0 5px rgba(16, 185, 129, 0.2);
+}
+
+.roster-status-badge.lobby {
+    color: var(--text-secondary);
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
