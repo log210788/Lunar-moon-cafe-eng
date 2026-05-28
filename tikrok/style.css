@@ -285,27 +285,19 @@ h1, h2, h3 {
     z-index: 1;
 }
 
-.blue-owned .hp-catchup {
-    stroke: rgba(0, 210, 255, 0.3);
-}
-
-.red-owned .hp-catchup {
-    stroke: rgba(255, 0, 127, 0.3);
+.owned .hp-catchup {
+    stroke: var(--owner-color-glow);
 }
 
 .hp-fill {
     stroke: var(--neutral-team);
     z-index: 2;
+    transition: stroke 0.3s ease, filter 0.3s ease;
 }
 
-.blue-owned .hp-fill {
-    stroke: var(--blue-team);
-    filter: drop-shadow(0 0 3px var(--blue-team-glow));
-}
-
-.red-owned .hp-fill {
-    stroke: var(--red-team);
-    filter: drop-shadow(0 0 3px var(--red-team-glow));
+.owned .hp-fill {
+    stroke: var(--owner-color);
+    filter: drop-shadow(0 0 3px var(--owner-color-glow));
 }
 
 /* Shield indicators: only visible on shielded cells */
@@ -391,40 +383,18 @@ h1, h2, h3 {
 }
 
 
-.grid-square.blue-owned {
-    background-color: var(--blue-team);
-    filter: drop-shadow(0 0 4px var(--blue-team-glow));
+.grid-square.owned {
+    background-color: var(--owner-color);
+    filter: drop-shadow(0 0 4px var(--owner-color-glow));
 }
 
-.grid-square.blue-owned::before {
-    background: radial-gradient(circle at center, rgba(3, 105, 161, 0.25) 0%, #0b1120 100%);
+.grid-square.owned::before {
+    background: radial-gradient(circle at center, var(--owner-color-glow) 0%, #0b1120 100%);
 }
 
-.grid-square.blue-owned .square-owner {
-    border-color: var(--blue-team);
-    box-shadow: 0 0 10px var(--blue-team-glow);
-}
-
-.grid-square.blue-owned .hp-bar {
-    background-color: var(--blue-team);
-}
-
-.grid-square.red-owned {
-    background-color: var(--red-team);
-    filter: drop-shadow(0 0 4px var(--red-team-glow));
-}
-
-.grid-square.red-owned::before {
-    background: radial-gradient(circle at center, rgba(190, 18, 60, 0.25) 0%, #0b1120 100%);
-}
-
-.grid-square.red-owned .square-owner {
-    border-color: var(--red-team);
-    box-shadow: 0 0 10px var(--red-team-glow);
-}
-
-.grid-square.red-owned .hp-bar {
-    background-color: var(--red-team);
+.grid-square.owned .square-owner {
+    border-color: var(--owner-color);
+    box-shadow: 0 0 10px var(--owner-color-glow);
 }
 
 /* Shield bubble effect on square */
@@ -492,9 +462,9 @@ h1, h2, h3 {
     border-radius: 50%;
 }
 
-.team-stat.blue .team-dot { background-color: var(--blue-team); box-shadow: 0 0 8px var(--blue-team); }
-.team-stat.red .team-dot { background-color: var(--red-team); box-shadow: 0 0 8px var(--red-team); }
 .team-stat.neutral .team-dot { background-color: var(--text-muted); }
+.team-stat.active-players .team-dot { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
+.team-stat.leader .team-dot { background-color: var(--coin-gold); box-shadow: 0 0 8px var(--coin-gold); }
 
 .stat-value {
     font-weight: 700;
@@ -502,8 +472,10 @@ h1, h2, h3 {
     font-family: var(--font-heading);
 }
 
-.team-stat.blue .stat-value { color: var(--blue-team); }
-.team-stat.red .stat-value { color: var(--red-team); }
+.team-stat.neutral .stat-value { color: var(--text-primary); }
+.team-stat.active-players .stat-value { color: #10b981; }
+.team-stat.leader .stat-value { color: var(--coin-gold); }
+
 
 /* Right Sidebar: Controller Controls */
 .controller-sidebar {
@@ -1295,35 +1267,33 @@ input:checked + .slider:before {
     max-height: 480px;
 }
 
-.lobby-dock.blue-dock {
-    border-color: rgba(0, 210, 255, 0.15);
-    box-shadow: 0 10px 30px rgba(0, 210, 255, 0.05), inset 0 0 15px rgba(0, 210, 255, 0.02);
+#lobbyDock {
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 10px 30px rgba(255, 255, 255, 0.02), inset 0 0 15px rgba(255, 255, 255, 0.01);
 }
 
-.lobby-dock.red-dock {
-    border-color: rgba(255, 0, 127, 0.15);
-    box-shadow: 0 10px 30px rgba(255, 0, 127, 0.05), inset 0 0 15px rgba(255, 0, 127, 0.02);
+#lobbyDock .dock-header {
+    color: var(--text-secondary);
+}
+
+#leaderboardDock {
+    border-color: rgba(245, 158, 11, 0.2);
+    box-shadow: 0 10px 30px rgba(245, 158, 11, 0.04), inset 0 0 15px rgba(245, 158, 11, 0.01);
+}
+
+#leaderboardDock .dock-header {
+    color: var(--coin-gold);
+    text-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
 }
 
 .dock-header {
     font-size: 10px;
     font-weight: 800;
     letter-spacing: 0.12em;
-    color: var(--text-secondary);
     text-align: center;
     border-bottom: 1px solid var(--border-glass);
     padding-bottom: 8px;
     width: 100%;
-}
-
-.blue-dock .dock-header {
-    color: var(--blue-team);
-    text-shadow: 0 0 8px var(--blue-team-glow);
-}
-
-.red-dock .dock-header {
-    color: var(--red-team);
-    text-shadow: 0 0 8px var(--red-team-glow);
 }
 
 .dock-avatars {
@@ -1347,7 +1317,7 @@ input:checked + .slider:before {
     width: 42px;
     height: 42px;
     border-radius: 50%;
-    border: 2px solid var(--neutral-team);
+    border: 2px solid var(--owner-color, var(--neutral-team));
     background-color: #1f2937;
     cursor: pointer;
     display: flex;
@@ -1355,22 +1325,13 @@ input:checked + .slider:before {
     justify-content: center;
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
     transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.25s, box-shadow 0.25s;
-    overflow: hidden;
-}
-
-.blue-dock .dock-avatar-item {
-    border-color: var(--blue-team);
-    box-shadow: 0 0 8px rgba(0, 210, 255, 0.2);
-}
-
-.red-dock .dock-avatar-item {
-    border-color: var(--red-team);
-    box-shadow: 0 0 8px rgba(255, 0, 127, 0.2);
+    overflow: visible; /* Show rank badge overflow */
 }
 
 .dock-avatar-item img {
     width: 100%;
     height: 100%;
+    border-radius: 50%;
     object-fit: cover;
 }
 
@@ -1382,16 +1343,8 @@ input:checked + .slider:before {
 /* Attacking animation for avatar in dock */
 .dock-avatar-item.attacking {
     animation: dockAttackingPulse 0.6s infinite alternate ease-in-out;
-}
-
-.blue-dock .dock-avatar-item.attacking {
-    border-color: #ffffff;
-    box-shadow: 0 0 20px rgba(0, 210, 255, 1), 0 0 40px rgba(0, 210, 255, 0.6);
-}
-
-.red-dock .dock-avatar-item.attacking {
-    border-color: #ffffff;
-    box-shadow: 0 0 20px rgba(255, 0, 127, 1), 0 0 40px rgba(255, 0, 127, 0.6);
+    border-color: #ffffff !important;
+    box-shadow: 0 0 20px var(--owner-color), 0 0 40px var(--owner-color-glow);
 }
 
 @keyframes dockAttackingPulse {
@@ -1401,6 +1354,22 @@ input:checked + .slider:before {
     100% {
         transform: scale(1.25);
     }
+}
+
+/* Rank score badge */
+.rank-badge {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    background-color: #030712;
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    font-size: 8px;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    z-index: 5;
 }
 
 /* Empty slots styling */
@@ -1418,14 +1387,9 @@ input:checked + .slider:before {
     transition: var(--transition);
 }
 
-.blue-dock .dock-empty-slot:hover {
-    border-color: rgba(0, 210, 255, 0.3);
-    color: rgba(0, 210, 255, 0.5);
-}
-
-.red-dock .dock-empty-slot:hover {
-    border-color: rgba(255, 0, 127, 0.3);
-    color: rgba(255, 0, 127, 0.5);
+.dock-empty-slot:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.5);
 }
 
 /* Roster Attacking State Highlights */

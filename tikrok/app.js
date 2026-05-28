@@ -157,7 +157,6 @@ function playSound(type) {
 const GRID_SIZE = 6;
 let boardState = [];
 let lastTargetId = -1; // stores the target of the last simulated action
-let currentUserTeam = 'blue';
 let activePlayers = {}; // stores active viewers and their board statuses
 
 // Generate A1, B2 labels from index
@@ -165,6 +164,28 @@ function getCoordLabel(index) {
     const colLetter = String.fromCharCode(65 + (index % GRID_SIZE)); // A, B, C...
     const rowNum = Math.floor(index / GRID_SIZE) + 1; // 1, 2, 3...
     return `${colLetter}${rowNum}`;
+}
+
+// Generate consistent HSL player color
+function getPlayerColor(username) {
+    if (!username || username === 'System' || username === 'Anonymous') return '#4b5563'; // neutral gray
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+        hash = username.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash % 360);
+    return `hsl(${hue}, 85%, 55%)`; // vibrant neon colors
+}
+
+// Generate consistent transparent HSL player color glow
+function getPlayerColorGlow(username) {
+    if (!username || username === 'System' || username === 'Anonymous') return 'rgba(75, 85, 99, 0.25)';
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+        hash = username.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash % 360);
+    return `hsla(${hue}, 85%, 55%, 0.35)`; // transparent glow
 }
 
 // Init board array: ALL start neutral (empty)
@@ -234,8 +255,17 @@ function renderBoard() {
             }
 
             // Sync Classes
-            sqEl.classList.toggle('blue-owned', square.team === 'blue');
-            sqEl.classList.toggle('red-owned', square.team === 'red');
+            const isOwned = square.ownerName !== 'System';
+            sqEl.classList.toggle('owned', isOwned);
+            if (isOwned) {
+                const color = getPlayerColor(square.ownerName);
+                const colorGlow = getPlayerColorGlow(square.ownerName);
+                sqEl.style.setProperty('--owner-color', color);
+                sqEl.style.setProperty('--owner-color-glow', colorGlow);
+            } else {
+                sqEl.style.removeProperty('--owner-color');
+                sqEl.style.removeProperty('--owner-color-glow');
+            }
             sqEl.classList.toggle('selected', square.id === lastTargetId);
             sqEl.classList.toggle('shielded', square.shield > 0);
             sqEl.classList.toggle('immune', square.immune);
@@ -284,7 +314,7 @@ function renderBoard() {
                 coordEl.innerHTML = expectedCoordHtml;
             }
 
-            const avatarHtml = square.team === 'neutral'
+            const avatarHtml = square.ownerName === 'System'
                 ? 'SYS'
                 : `<img class="user-avatar" src="${square.profilePicUrl}" alt="${square.ownerName}">`;
             
@@ -295,7 +325,7 @@ function renderBoard() {
             }
 
             const usernameEl = sqEl.querySelector('.username-label');
-            const expectedUsername = square.team === 'neutral' ? 'System' : square.ownerName;
+            const expectedUsername = square.ownerName === 'System' ? 'System' : square.ownerName;
             if (usernameEl.textContent !== expectedUsername) {
                 usernameEl.textContent = expectedUsername;
             }
@@ -332,19 +362,47 @@ function updateLastTargetIndicator(id) {
 }
 
 function updateStats() {
-    let blueCount = 0;
-    let redCount = 0;
     let neutralCount = 0;
+    const scores = {};
 
     boardState.forEach(s => {
-        if (s.team === 'blue') blueCount++;
-        else if (s.team === 'red') redCount++;
-        else neutralCount++;
+        if (s.ownerName === 'System') {
+            neutralCount++;
+        } else {
+            scores[s.ownerName] = (scores[s.ownerName] || 0) + 1;
+        }
     });
 
-    document.getElementById('blueScore').textContent = blueCount;
-    document.getElementById('redScore').textContent = redCount;
-    document.getElementById('neutralScore').textContent = neutralCount;
+    // Count active players (everyone in activePlayers registry)
+    const activePlayersList = Object.values(activePlayers);
+    const activeCount = activePlayersList.length;
+
+    // Find top player
+    let topPlayer = 'None';
+    let maxScore = 0;
+    for (const [player, score] of Object.entries(scores)) {
+        if (score > maxScore) {
+            maxScore = score;
+            topPlayer = `${player} (${score})`;
+        }
+    }
+
+    const neutralEl = document.getElementById('neutralScore');
+    if (neutralEl) neutralEl.textContent = neutralCount;
+
+    const activeEl = document.getElementById('activePlayersCount');
+    if (activeEl) activeEl.textContent = activeCount;
+
+    const leaderEl = document.getElementById('topConqueror');
+    if (leaderEl) {
+        leaderEl.textContent = topPlayer;
+        if (topPlayer !== 'None') {
+            const leaderName = topPlayer.split(' (')[0];
+            leaderEl.style.color = getPlayerColor(leaderName);
+        } else {
+            leaderEl.style.color = 'var(--coin-gold)';
+        }
+    }
 }
 
 // Log activities to screen
@@ -412,7 +470,7 @@ function spawnFloatingText(squareId, text, type = 'damage') {
     });
 }
 
-function spawnParticles(squareId, colorClass) {
+function spawnParticles(squareId, colorType) {
     const boardEl = document.getElementById('gridBoard');
     if (!boardEl) return;
 
@@ -426,10 +484,18 @@ function spawnParticles(squareId, colorClass) {
     const left = col * 82 + (row % 2 === 1 ? 41 : 0) + 40; // center X
     const top = row * 69 + 12 + 46; // center Y
 
+    let resolvedColor = '#ef4444'; // fallback red
+    if (colorType === 'green') resolvedColor = '#10b981';
+    else if (colorType === 'gold') resolvedColor = '#f59e0b';
+    else if (colorType === 'cyan') resolvedColor = '#00d2ff';
+    else if (colorType === 'red') resolvedColor = '#ef4444';
+    else if (colorType) resolvedColor = colorType; // custom HSL or hex color
+
     // Spawn 7 flying particles
     for (let i = 0; i < 7; i++) {
         const particle = document.createElement('div');
-        particle.className = `hit-particle ${colorClass}`;
+        particle.className = `hit-particle`;
+        particle.style.setProperty('--particle-color', resolvedColor);
         
         particle.style.position = 'absolute';
         particle.style.left = `${left}px`;
@@ -458,14 +524,14 @@ function selectSquare(id) {
 }
 
 // Active Viewer Lobby Registration
-function registerActivePlayer(username, team) {
+function registerActivePlayer(username) {
     if (!username || username === 'System' || username === 'Anonymous') return;
     if (!activePlayers[username]) {
         activePlayers[username] = {
             name: username,
-            team: team,
             avatar: `https://robohash.org/${encodeURIComponent(username)}?set=set4`,
-            squaresCount: 0
+            squaresCount: 0,
+            attacking: false
         };
     }
 }
@@ -477,8 +543,8 @@ function updatePlayerRoster() {
     
     // Count owned squares and dynamically register any owners we missed (e.g. from autoplay bots)
     boardState.forEach(s => {
-        if (s.team !== 'neutral' && s.ownerName !== 'System') {
-            registerActivePlayer(s.ownerName, s.team);
+        if (s.ownerName !== 'System') {
+            registerActivePlayer(s.ownerName);
             if (activePlayers[s.ownerName]) {
                 activePlayers[s.ownerName].squaresCount++;
             }
@@ -488,7 +554,7 @@ function updatePlayerRoster() {
     renderPlayerRoster();
 }
 
-// Render active player lobby in the sidebar
+// Render active player roster in the sidebar
 function renderPlayerRoster() {
     const rosterEl = document.getElementById('playerRoster');
     if (!rosterEl) return;
@@ -498,6 +564,7 @@ function renderPlayerRoster() {
     if (players.length === 0) {
         rosterEl.innerHTML = `<div class="leaderboard-empty" style="font-size: 12px; text-align: center; color: var(--text-muted);">No active players in lobby yet.<br>Send an action to join!</div>`;
         renderLobbyDocks();
+        renderLeaderboardDock();
         return;
     }
 
@@ -521,14 +588,14 @@ function renderPlayerRoster() {
             badgeClass = 'attacking';
         }
         
-        const teamClass = p.team === 'blue' ? 'blue' : 'red';
+        const playerColor = getPlayerColor(p.name);
         const attackingItemClass = isAttacking ? 'attacking' : '';
 
         return `
             <div class="roster-item ${attackingItemClass}">
                 <div class="roster-player-info">
-                    <img class="roster-avatar ${teamClass}-border" src="${p.avatar}" alt="${p.name}">
-                    <span class="roster-name ${teamClass}-text">${p.name}</span>
+                    <img class="roster-avatar" style="border-color: ${playerColor};" src="${p.avatar}" alt="${p.name}">
+                    <span class="roster-name" style="color: ${playerColor};">${p.name}</span>
                 </div>
                 <span class="roster-status-badge ${badgeClass}">${statusText}</span>
             </div>
@@ -536,41 +603,26 @@ function renderPlayerRoster() {
     }).join('');
 
     renderLobbyDocks();
+    renderLeaderboardDock();
 }
 
-// Render left and right lobby docks for off-board active players
+// Render left lobby dock for off-board active players
 function renderLobbyDocks() {
-    const blueAvatarsEl = document.getElementById('blueLobbyAvatars');
-    const redAvatarsEl = document.getElementById('redLobbyAvatars');
-    if (!blueAvatarsEl || !redAvatarsEl) return;
+    const lobbyAvatarsEl = document.getElementById('lobbyAvatars');
+    if (!lobbyAvatarsEl) return;
 
     const players = Object.values(activePlayers);
+    const offBoard = players.filter(p => p.squaresCount === 0);
 
-    // Blue off-board players
-    const blueOffBoard = players.filter(p => p.team === 'blue' && p.squaresCount === 0);
-    // Red off-board players
-    const redOffBoard = players.filter(p => p.team === 'red' && p.squaresCount === 0);
-
-    if (blueOffBoard.length === 0) {
-        blueAvatarsEl.innerHTML = `<div class="dock-empty-slot" title="No players in blue lobby">+</div>`;
+    if (offBoard.length === 0) {
+        lobbyAvatarsEl.innerHTML = `<div class="dock-empty-slot" title="No players in lobby">+</div>`;
     } else {
-        blueAvatarsEl.innerHTML = blueOffBoard.map(p => {
+        lobbyAvatarsEl.innerHTML = offBoard.map(p => {
             const attackingClass = p.attacking ? 'attacking' : '';
+            const playerColor = getPlayerColor(p.name);
+            const playerGlow = getPlayerColorGlow(p.name);
             return `
-                <div class="dock-avatar-item ${attackingClass}" data-username="${p.name}" title="${p.name} (Lobby)">
-                    <img src="${p.avatar}" alt="${p.name}">
-                </div>
-            `;
-        }).join('');
-    }
-
-    if (redOffBoard.length === 0) {
-        redAvatarsEl.innerHTML = `<div class="dock-empty-slot" title="No players in red lobby">+</div>`;
-    } else {
-        redAvatarsEl.innerHTML = redOffBoard.map(p => {
-            const attackingClass = p.attacking ? 'attacking' : '';
-            return `
-                <div class="dock-avatar-item ${attackingClass}" data-username="${p.name}" title="${p.name} (Lobby)">
+                <div class="dock-avatar-item ${attackingClass}" data-username="${p.name}" style="border-color: ${playerColor}; --owner-color: ${playerColor}; --owner-color-glow: ${playerGlow};" title="${p.name} (Lobby)">
                     <img src="${p.avatar}" alt="${p.name}">
                 </div>
             `;
@@ -578,8 +630,34 @@ function renderLobbyDocks() {
     }
 }
 
-// Launch flying avatar projectile from team side or from owned square
-function launchProjectile(user, team, targetId, callback) {
+// Render right leaderboard dock for active on-board players
+function renderLeaderboardDock() {
+    const leaderboardAvatarsEl = document.getElementById('leaderboardAvatars');
+    if (!leaderboardAvatarsEl) return;
+
+    const players = Object.values(activePlayers).filter(p => p.squaresCount > 0);
+    players.sort((a, b) => b.squaresCount - a.squaresCount);
+
+    if (players.length === 0) {
+        leaderboardAvatarsEl.innerHTML = `<div class="dock-empty-slot" title="No players on map">-</div>`;
+    } else {
+        leaderboardAvatarsEl.innerHTML = players.map((p, index) => {
+            const attackingClass = p.attacking ? 'attacking' : '';
+            const playerColor = getPlayerColor(p.name);
+            const playerGlow = getPlayerColorGlow(p.name);
+            const rankLabel = index === 0 ? '👑' : `#${index + 1}`;
+            return `
+                <div class="dock-avatar-item ${attackingClass}" data-username="${p.name}" style="border-color: ${playerColor}; --owner-color: ${playerColor}; --owner-color-glow: ${playerGlow};" title="${rankLabel} ${p.name}: ${p.squaresCount} tiles">
+                    <img src="${p.avatar}" alt="${p.name}">
+                    <div class="rank-badge">${p.squaresCount}</div>
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+// Launch flying avatar projectile from lobby dock or owned square
+function launchProjectile(user, targetId, callback) {
     const boardEl = document.getElementById('gridBoard');
     if (!boardEl) {
         callback();
@@ -612,7 +690,7 @@ function launchProjectile(user, team, targetId, callback) {
 
     if (isOnMap) {
         // Find closest owned square
-        const ownedSquares = boardState.filter(s => s.team === team && s.ownerName === user);
+        const ownedSquares = boardState.filter(s => s.ownerName === user);
         let sourceTileId = -1;
         if (ownedSquares.length > 0) {
             let minDistance = Infinity;
@@ -637,27 +715,27 @@ function launchProjectile(user, team, targetId, callback) {
             startX = sCol * 82 + (sRow % 2 === 1 ? 41 : 0) + 40 - 16;
             startY = sRow * 69 + 12 + 46 - 16;
         } else {
-            // Fallback to team side
-            startX = team === 'blue' ? -80 : 620;
+            // Fallback coordinates
+            startX = -80;
             startY = 230;
         }
     } else {
         // Off map: launch from Lobby Dock avatar
         const boardRect = boardEl.getBoundingClientRect();
-        const avatarEl = document.querySelector(`.dock-avatar-item[data-username="${user}"]`);
+        const avatarEl = document.querySelector(`#lobbyDock .dock-avatar-item[data-username="${user}"]`);
 
         if (avatarEl) {
             const avatarRect = avatarEl.getBoundingClientRect();
             startX = avatarRect.left - boardRect.left + avatarRect.width / 2 - 16;
             startY = avatarRect.top - boardRect.top + avatarRect.height / 2 - 16;
         } else {
-            const dockEl = document.getElementById(team === 'blue' ? 'blueLobbyDock' : 'redLobbyDock');
+            const dockEl = document.getElementById('lobbyDock');
             if (dockEl) {
                 const dockRect = dockEl.getBoundingClientRect();
                 startX = dockRect.left - boardRect.left + dockRect.width / 2 - 16;
                 startY = dockRect.top - boardRect.top + dockRect.height / 2 - 16;
             } else {
-                startX = team === 'blue' ? -80 : 620;
+                startX = -80;
                 startY = 230;
             }
         }
@@ -665,8 +743,13 @@ function launchProjectile(user, team, targetId, callback) {
 
     // Create projectile div
     const projEl = document.createElement('div');
-    projEl.className = `flying-projectile ${team}-proj`;
+    projEl.className = `flying-projectile`;
     
+    const playerColor = getPlayerColor(user);
+    const playerGlow = getPlayerColorGlow(user);
+    projEl.style.setProperty('--owner-color', playerColor);
+    projEl.style.setProperty('--owner-color-glow', playerGlow);
+
     const avatarUrl = `https://robohash.org/${encodeURIComponent(user)}?set=set4`;
     projEl.innerHTML = `<img src="${avatarUrl}" alt="${user}">`;
 
@@ -701,9 +784,9 @@ function launchProjectile(user, team, targetId, callback) {
 // ==========================================================================
 
 // Helper to set owner and profile picture
-function setSquareOwner(square, ownerName, team) {
-    square.team = team;
+function setSquareOwner(square, ownerName) {
     square.ownerName = ownerName;
+    square.team = (ownerName === 'System') ? 'neutral' : 'owned';
     square.hp = 100;
     square.shield = 0;
     if (ownerName === 'System') {
@@ -715,17 +798,18 @@ function setSquareOwner(square, ownerName, team) {
 }
 
 // Input A: Likes Action (Random Placement / Attack)
-function handleRandomLike(user, team) {
+function handleRandomLike(user) {
     const randomIndex = Math.floor(Math.random() * boardState.length);
     const target = boardState[randomIndex];
     updateLastTargetIndicator(randomIndex);
 
-    registerActivePlayer(user, team);
+    registerActivePlayer(user);
 
-    launchProjectile(user, team, randomIndex, () => {
+    launchProjectile(user, randomIndex, () => {
         // Block attacks on immune enemy squares
-        if (target.team !== 'neutral' && target.team !== team && target.immune) {
-            logActivity(`🛡️ <b>${user}</b> liked but enemy square <b>${target.coord}</b> is IMMUNE! (BLOCKED)`, 'shield');
+        const isEnemyOwned = target.ownerName !== 'System' && target.ownerName !== user;
+        if (isEnemyOwned && target.immune) {
+            logActivity(`🛡️ <b>${user}</b> liked but <b>${target.ownerName}</b>'s square <b>${target.coord}</b> is IMMUNE! (BLOCKED)`, 'shield');
             playSound('shield');
             triggerVisualFX(randomIndex, 'deflected');
             spawnFloatingText(randomIndex, "BLOCKED!", "immune");
@@ -734,18 +818,20 @@ function handleRandomLike(user, team) {
             return;
         }
 
-        if (target.team === 'neutral') {
+        const playerColor = getPlayerColor(user);
+
+        if (target.ownerName === 'System') {
             // Claim neutral instantly
-            setSquareOwner(target, user, team);
-            logActivity(`👍 <b>${user}</b> liked and randomly claimed neutral square <b>${target.coord}</b> for ${team.toUpperCase()}!`, 'like');
+            setSquareOwner(target, user);
+            logActivity(`👍 <b>${user}</b> liked and randomly claimed neutral square <b>${target.coord}</b>!`, 'like');
             playSound('like');
             triggerVisualFX(randomIndex, 'takeover-flash');
             spawnFloatingText(randomIndex, "CLAIM!", "heal");
-            spawnParticles(randomIndex, team === 'blue' ? 'cyan' : 'red');
-        } else if (target.team === team) {
-            // Fortify own team square
+            spawnParticles(randomIndex, playerColor);
+        } else if (target.ownerName === user) {
+            // Fortify own square
             target.hp = Math.min(100, target.hp + 20);
-            logActivity(`👍 <b>${user}</b> liked and fortified owned square <b>${target.coord}</b> (+20 HP).`, 'like');
+            logActivity(`👍 <b>${user}</b> liked and fortified their own square <b>${target.coord}</b> (+20 HP).`, 'like');
             playSound('like');
             triggerVisualFX(randomIndex, 'takeover-flash');
             spawnFloatingText(randomIndex, "+20 HP", "heal");
@@ -755,20 +841,20 @@ function handleRandomLike(user, team) {
             triggerVisualFX(randomIndex, 'under-attack');
             if (target.shield > 0) {
                 target.shield = Math.max(0, target.shield - 40);
-                logActivity(`👍 <b>${user}</b> liked and randomly hit enemy shield on <b>${target.coord}</b> (-40).`, 'shield');
+                logActivity(`👍 <b>${user}</b> hit <b>${target.ownerName}</b>'s shield on <b>${target.coord}</b> (-40).`, 'shield');
                 playSound('damage');
                 spawnFloatingText(randomIndex, "-40 SHD", "damage");
-                spawnParticles(randomIndex, 'cyan');
+                spawnParticles(randomIndex, playerColor);
             } else {
                 target.hp = Math.max(0, target.hp - 30);
-                logActivity(`👍 <b>${user}</b> liked and damaged enemy square <b>${target.coord}</b> (-30 HP).`, 'rose');
+                logActivity(`👍 <b>${user}</b> damaged <b>${target.ownerName}</b>'s square <b>${target.coord}</b> (-30 HP).`, 'rose');
                 spawnFloatingText(randomIndex, "-30 HP", "damage");
-                spawnParticles(randomIndex, 'red');
+                spawnParticles(randomIndex, playerColor);
                 
                 if (target.hp <= 0) {
-                    const oldTeam = target.team;
-                    setSquareOwner(target, user, team);
-                    logActivity(`🚩 Conquered! <b>${target.coord}</b> flips to ${team.toUpperCase()} team from ${oldTeam.toUpperCase()} via likes!`, 'nuke');
+                    const oldOwner = target.ownerName;
+                    setSquareOwner(target, user);
+                    logActivity(`🚩 Conquered! <b>${target.coord}</b> flips to <b>${user}</b> from <b>${oldOwner}</b>!`, 'nuke');
                     playSound('nuke-cross');
                     triggerVisualFX(randomIndex, 'takeover-flash');
                 } else {
@@ -781,12 +867,11 @@ function handleRandomLike(user, team) {
 }
 
 // Rose Attack donation (Chooses a Random Enemy Square)
-function handleRandomDamage(amount, attacker, team) {
-    const enemyTeam = team === 'blue' ? 'red' : 'blue';
-    const enemySquares = boardState.filter(s => s.team === enemyTeam);
+function handleRandomDamage(amount, attacker) {
+    const enemySquares = boardState.filter(s => s.ownerName !== 'System' && s.ownerName !== attacker);
     
     if (enemySquares.length === 0) {
-        logActivity(`🌹 <b>${attacker}</b> wanted to Rose attack, but the ${enemyTeam.toUpperCase()} team has no owned squares!`, 'rose');
+        logActivity(`🌹 <b>${attacker}</b> wanted to Rose attack, but there are no enemy owned squares!`, 'rose');
         return;
     }
 
@@ -794,12 +879,12 @@ function handleRandomDamage(amount, attacker, team) {
     const square = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
-    registerActivePlayer(attacker, team);
+    registerActivePlayer(attacker);
 
-    launchProjectile(attacker, team, targetId, () => {
+    launchProjectile(attacker, targetId, () => {
         // Block attack if square is immune
         if (square.immune) {
-            logActivity(`🛡️ <b>${attacker}</b> sent a Rose but enemy square <b>${square.coord}</b> is IMMUNE! (BLOCKED)`, 'shield');
+            logActivity(`🛡️ <b>${attacker}</b> sent a Rose but <b>${square.ownerName}</b>'s square <b>${square.coord}</b> is IMMUNE! (BLOCKED)`, 'shield');
             playSound('shield');
             triggerVisualFX(targetId, 'deflected');
             spawnFloatingText(targetId, "BLOCKED!", "immune");
@@ -808,22 +893,23 @@ function handleRandomDamage(amount, attacker, team) {
             return;
         }
         
+        const playerColor = getPlayerColor(attacker);
         triggerVisualFX(targetId, 'under-attack');
         
         if (square.shield > 0) {
             square.shield = Math.max(0, square.shield - amount);
-            logActivity(`🌹 <b>${attacker}</b> sent a Rose and randomly hit enemy shield on <b>${square.coord}</b> (-${amount})!`, 'shield');
+            logActivity(`🌹 <b>${attacker}</b> sent a Rose and hit <b>${square.ownerName}</b>'s shield on <b>${square.coord}</b> (-${amount})!`, 'shield');
             playSound('damage');
             spawnFloatingText(targetId, `-${amount} SHD`, "damage");
-            spawnParticles(targetId, 'cyan');
+            spawnParticles(targetId, playerColor);
         } else {
             square.hp = Math.max(0, square.hp - amount);
-            logActivity(`🌹 <b>${attacker}</b> sent a Rose and dealt <b>${amount} dmg</b> to <b>${square.coord}</b>!`, 'rose');
+            logActivity(`🌹 <b>${attacker}</b> sent a Rose and dealt <b>${amount} dmg</b> to <b>${square.ownerName}</b>'s square <b>${square.coord}</b>!`, 'rose');
             spawnFloatingText(targetId, `-${amount} HP`, "damage");
-            spawnParticles(targetId, 'red');
+            spawnParticles(targetId, playerColor);
             
             if (square.hp <= 0) {
-                claimSingleSquare(targetId, attacker, team);
+                claimSingleSquare(targetId, attacker);
             } else {
                 playSound('damage');
             }
@@ -833,16 +919,15 @@ function handleRandomDamage(amount, attacker, team) {
 }
 
 // Boost Shield donation (Chooses a Random Owned Square)
-function handleRandomShield(amount, user, team) {
+function handleRandomShield(amount, user) {
     // Prioritize owned squares that are NOT already immune
-    const ownedSquares = boardState.filter(s => s.team === team && !s.immune);
+    const ownedSquares = boardState.filter(s => s.ownerName === user && !s.immune);
     
     let targetId;
     if (ownedSquares.length === 0) {
-        // If all owned squares are already immune, fallback to any owned square
-        const allOwned = boardState.filter(s => s.team === team);
+        const allOwned = boardState.filter(s => s.ownerName === user);
         if (allOwned.length === 0) {
-            logActivity(`System: <b>${user}</b> tried to shield, but ${team.toUpperCase()} owns no squares!`, 'system');
+            logActivity(`System: <b>${user}</b> tried to shield, but owns no squares!`, 'system');
             return;
         }
         targetId = allOwned[Math.floor(Math.random() * allOwned.length)].id;
@@ -853,9 +938,9 @@ function handleRandomShield(amount, user, team) {
     const square = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
-    registerActivePlayer(user, team);
+    registerActivePlayer(user);
 
-    launchProjectile(user, team, targetId, () => {
+    launchProjectile(user, targetId, () => {
         if (square.immune) {
             // Refresh immunity timer to 60s
             square.immuneTimeLeft = 60;
@@ -881,7 +966,7 @@ function handleRandomShield(amount, user, team) {
             spawnParticles(targetId, 'gold');
             triggerHypeAlert("IMMUNITY TRIGGERED!", `Square ${square.coord} is now IMMUNE for 60s!`, "👑", false);
         } else {
-            logActivity(`💖 <b>${user}</b> sent a Heart Shield and boosted owned square <b>${square.coord}</b> (+${amount} Shield)!`, 'shield');
+            logActivity(`💖 <b>${user}</b> boosted owned square <b>${square.coord}</b> (+${amount} Shield)!`, 'shield');
             playSound('shield');
             triggerVisualFX(targetId, 'takeover-flash');
             spawnFloatingText(targetId, `+${amount} SHD`, "shield");
@@ -892,12 +977,12 @@ function handleRandomShield(amount, user, team) {
 }
 
 // Helper to overwrite a single square
-function claimSingleSquare(squareId, user, team) {
+function claimSingleSquare(squareId, user) {
     const square = boardState[squareId];
     if (!square) return;
 
-    // Block takeover if the square is immune and owned by the enemy
-    if (square.immune && square.team !== 'neutral' && square.team !== team) {
+    // Block takeover if the square is immune and owned by another player
+    if (square.immune && square.ownerName !== 'System' && square.ownerName !== user) {
         logActivity(`🛡️ center/impact hit <b>${square.coord}</b> but it is IMMUNE! (BLOCKED)`, 'shield');
         playSound('shield');
         triggerVisualFX(squareId, 'deflected');
@@ -906,18 +991,19 @@ function claimSingleSquare(squareId, user, team) {
         return;
     }
 
-    const oldTeam = square.team;
-    setSquareOwner(square, user, team);
+    const oldOwner = square.ownerName;
+    setSquareOwner(square, user);
     
-    if (oldTeam !== 'neutral') {
-        logActivity(`🚩 <b>${square.coord}</b> conquered from ${oldTeam.toUpperCase()} team by <b>${user}</b> (<span class="${team}-text" style="color: var(--${team}-team)"><b>${team.toUpperCase()}</b></span>)!`, 'nuke');
+    const playerColor = getPlayerColor(user);
+    if (oldOwner !== 'System') {
+        logActivity(`🚩 <b>${square.coord}</b> conquered from <b>${oldOwner}</b> by <span style="color: ${playerColor}"><b>${user}</b></span>!`, 'nuke');
     } else {
-        logActivity(`🚩 <b>${square.coord}</b> claimed by <b>${user}</b> for the <span class="${team}-text" style="color: var(--${team}-team)"><b>${team.toUpperCase()} TEAM</b></span>!`, 'nuke');
+        logActivity(`🚩 <b>${square.coord}</b> claimed by <span style="color: ${playerColor}"><b>${user}</b></span>!`, 'nuke');
     }
     
     triggerVisualFX(squareId, 'takeover-flash');
-    spawnFloatingText(squareId, oldTeam !== 'neutral' ? "CONQUERED!" : "CLAIMED!", "heal");
-    spawnParticles(squareId, team === 'blue' ? 'cyan' : 'red');
+    spawnFloatingText(squareId, oldOwner !== 'System' ? "CONQUERED!" : "CLAIMED!", "heal");
+    spawnParticles(squareId, playerColor);
     spawnParticles(squareId, 'gold'); // dual sparks for capture!
 }
 
@@ -926,14 +1012,14 @@ function claimSingleSquare(squareId, user, team) {
 // ==========================================================================
 
 // Layer 1: Cross Nuke (Bolt - Cost: 10 Coins)
-function launchCrossNuke(user, team) {
+function launchCrossNuke(user) {
     const targetId = Math.floor(Math.random() * boardState.length);
     const target = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
-    registerActivePlayer(user, team);
+    registerActivePlayer(user);
 
-    launchProjectile(user, team, targetId, () => {
+    launchProjectile(user, targetId, () => {
         playSound('nuke-cross');
         logActivity(`⚡ <b>${user}</b> sent a TikTok Bolt, launching a <b>Cross Nuke</b> centered at <b>${target.coord}</b>!`, 'nuke');
 
@@ -951,7 +1037,7 @@ function launchCrossNuke(user, team) {
         coordinates.forEach(coord => {
             if (coord.r >= 0 && coord.r < GRID_SIZE && coord.c >= 0 && coord.c < GRID_SIZE) {
                 const id = coord.r * GRID_SIZE + coord.c;
-                claimSingleSquare(id, user, team);
+                claimSingleSquare(id, user);
             }
         });
 
@@ -960,14 +1046,14 @@ function launchCrossNuke(user, team) {
 }
 
 // Layer 2: Area Nuke (Bomb - Cost: 30 Coins)
-function launchAreaNuke(user, team) {
+function launchAreaNuke(user) {
     const targetId = Math.floor(Math.random() * boardState.length);
     const target = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
-    registerActivePlayer(user, team);
+    registerActivePlayer(user);
 
-    launchProjectile(user, team, targetId, () => {
+    launchProjectile(user, targetId, () => {
         playSound('nuke-area');
         logActivity(`💥 <b>${user}</b> sent a Bomb, launching a <b>3x3 Area Nuke</b> centered on <b>${target.coord}</b>!`, 'nuke');
 
@@ -978,7 +1064,7 @@ function launchAreaNuke(user, team) {
             for (let c = col - 1; c <= col + 1; c++) {
                 if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
                     const id = r * GRID_SIZE + c;
-                    claimSingleSquare(id, user, team);
+                    claimSingleSquare(id, user);
                 }
             }
         }
@@ -988,14 +1074,14 @@ function launchAreaNuke(user, team) {
 }
 
 // Layer 3: Laser Column/Row Nuke (Rocket - Cost: 99 Coins)
-function launchLaserNuke(user, team) {
+function launchLaserNuke(user) {
     const targetId = Math.floor(Math.random() * boardState.length);
     const target = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
-    registerActivePlayer(user, team);
+    registerActivePlayer(user);
 
-    launchProjectile(user, team, targetId, () => {
+    launchProjectile(user, targetId, () => {
         playSound('nuke-laser');
         logActivity(`🚀 <b>${user}</b> sent a Rocket, firing a <b>Row & Column Laser</b> centered on <b>${target.coord}</b>!`, 'nuke');
         triggerHypeAlert("LASER SWEEP!", `${user} launched a Row & Column Rocket!`, "🚀", false);
@@ -1008,7 +1094,7 @@ function launchLaserNuke(user, team) {
             const r = Math.floor(i / GRID_SIZE);
             
             if (c === col || r === row) {
-                claimSingleSquare(i, user, team);
+                claimSingleSquare(i, user);
             }
         }
 
@@ -1017,14 +1103,14 @@ function launchLaserNuke(user, team) {
 }
 
 // Layer 4: Mega Galaxy Nuke (Galaxy - Cost: 500 Coins)
-function launchMegaNuke(user, team) {
+function launchMegaNuke(user) {
     const targetId = Math.floor(Math.random() * boardState.length);
     const target = boardState[targetId];
     updateLastTargetIndicator(targetId);
 
-    registerActivePlayer(user, team);
+    registerActivePlayer(user);
 
-    launchProjectile(user, team, targetId, () => {
+    launchProjectile(user, targetId, () => {
         playSound('nuke-mega');
         logActivity(`🌌 <b>${user}</b> sent a Universe, launching a massive <b>5x5 Galaxy Nuke</b> centered at <b>${target.coord}</b>!`, 'nuke');
         triggerHypeAlert("GALAXY NUKE!", `${user} sent a UNIVERSE: 5x5 explosion!`, "🌌", true);
@@ -1036,7 +1122,7 @@ function launchMegaNuke(user, team) {
             for (let c = col - 2; c <= col + 2; c++) {
                 if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
                     const id = r * GRID_SIZE + c;
-                    claimSingleSquare(id, user, team);
+                    claimSingleSquare(id, user);
                 }
             }
         }
@@ -1093,44 +1179,44 @@ function triggerHypeAlert(title, subtitle, emoji, isMega = false) {
 // Auto-Simulation Stream Mode (Demo)
 // ==========================================================================
 let autoSimInterval = null;
-const BLUE_VIEWERS = ["Blue_Wave", "Aqua_Knight", "Frost_Byte", "Cobalt_Rex", "Ocean_Eye", "Sky_Shield", "Hex_Blue", "Tidal_Wave"];
-const RED_VIEWERS = ["Red_Fury", "Ruby_Fyre", "Crimson_Claw", "Blaze_Star", "Scarlet_Viper", "Magma_Lord", "Hex_Red", "Cosmic_Ember"];
+const BOT_VIEWERS = [
+    "Blue_Wave", "Aqua_Knight", "Frost_Byte", "Cobalt_Rex", "Ocean_Eye",
+    "Sky_Shield", "Hex_Blue", "Tidal_Wave", "Red_Fury", "Ruby_Fyre",
+    "Crimson_Claw", "Blaze_Star", "Scarlet_Viper", "Magma_Lord", "Hex_Red",
+    "Cosmic_Ember", "Shadow_Ninja", "Gold_Striker", "Storm_Bringer", "Nexus_Prime"
+];
 
 function startAutoSimulation() {
     if (autoSimInterval) return;
     
     autoSimInterval = setInterval(() => {
-        // Pick a random team for the action
-        const team = Math.random() < 0.5 ? 'blue' : 'red';
-        const viewers = team === 'blue' ? BLUE_VIEWERS : RED_VIEWERS;
-        const viewer = viewers[Math.floor(Math.random() * viewers.length)];
-        
+        const viewer = BOT_VIEWERS[Math.floor(Math.random() * BOT_VIEWERS.length)];
         const roll = Math.random();
         
         if (roll < 0.70) {
             // 70% chance: Like
-            handleRandomLike(viewer, team);
+            handleRandomLike(viewer);
         } else if (roll < 0.85) {
             // 15% chance: Rose (Damage)
-            handleRandomDamage(50, viewer, team);
+            handleRandomDamage(50, viewer);
         } else if (roll < 0.94) {
             // 9% chance: Shield
-            handleRandomShield(200, viewer, team);
+            handleRandomShield(200, viewer);
         } else {
             // 6% chance: Nuke
             const nukeRoll = Math.random();
             if (nukeRoll < 0.45) {
                 // Cross Nuke
-                launchCrossNuke(viewer, team);
+                launchCrossNuke(viewer);
             } else if (nukeRoll < 0.75) {
                 // Area Nuke
-                launchAreaNuke(viewer, team);
+                launchAreaNuke(viewer);
             } else if (nukeRoll < 0.93) {
                 // Laser Nuke
-                launchLaserNuke(viewer, team);
+                launchLaserNuke(viewer);
             } else {
                 // Galaxy Nuke!
-                launchMegaNuke(viewer, team);
+                launchMegaNuke(viewer);
             }
         }
     }, 850); // Execute every 850ms for nice readable pace
@@ -1150,65 +1236,49 @@ document.addEventListener('DOMContentLoaded', () => {
     initBoard();
     renderBoard();
 
-    // Team selector configs
-    const btnBlue = document.getElementById('selectBlueTeam');
-    const btnRed = document.getElementById('selectRedTeam');
-
-    btnBlue.addEventListener('click', () => {
-        btnBlue.classList.add('active');
-        btnRed.classList.remove('active');
-        currentUserTeam = 'blue';
-    });
-
-    btnRed.addEventListener('click', () => {
-        btnRed.classList.add('active');
-        btnBlue.classList.remove('active');
-        currentUserTeam = 'red';
-    });
-
     // 1. Likes Action Handler (Input A - Random Placement)
     document.getElementById('actionLike').addEventListener('click', () => {
         initAudio();
         const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
-        handleRandomLike(user, currentUserTeam);
+        handleRandomLike(user);
     });
 
     // 2. Target Attack & Shield Boost Handlers (No click coordinate dependencies anymore!)
     document.getElementById('actionRose').addEventListener('click', () => {
         initAudio();
         const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
-        handleRandomDamage(50, user, currentUserTeam); // deals 50 damage to random enemy square
+        handleRandomDamage(50, user); // deals 50 damage to random enemy square
     });
 
     document.getElementById('actionShield').addEventListener('click', () => {
         initAudio();
         const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
-        handleRandomShield(500, user, currentUserTeam); // boosts shield on random owned square
+        handleRandomShield(500, user); // boosts shield on random owned square
     });
 
     // 3. Different Layers of Nukes (All target randomly)
     document.getElementById('actionCrossNuke').addEventListener('click', () => {
         initAudio();
         const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
-        launchCrossNuke(user, currentUserTeam);
+        launchCrossNuke(user);
     });
 
     document.getElementById('actionAreaNuke').addEventListener('click', () => {
         initAudio();
         const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
-        launchAreaNuke(user, currentUserTeam);
+        launchAreaNuke(user);
     });
 
     document.getElementById('actionLaserNuke').addEventListener('click', () => {
         initAudio();
         const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
-        launchLaserNuke(user, currentUserTeam);
+        launchLaserNuke(user);
     });
 
     document.getElementById('actionMegaNuke').addEventListener('click', () => {
         initAudio();
         const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
-        launchMegaNuke(user, currentUserTeam);
+        launchMegaNuke(user);
     });
 
     // 4. Auto-Simulate Toggle Config

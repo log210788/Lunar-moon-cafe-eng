@@ -37,15 +37,15 @@
         <main class="grid-arena-container">
             <header class="arena-header">
                 <h1>TikTok Grid Conquest</h1>
-                <p>Blue vs Red Team! Likes place random squares. Use shields to block them, and trigger nukes!</p>
+                <p>Free-For-All Arena! Likes place random squares. Use shields to block them, and trigger nukes!</p>
             </header>
 
             <div class="arena-layout-row">
-                <!-- Left Dock: Blue Lobby -->
-                <div class="lobby-dock blue-dock" id="blueLobbyDock">
-                    <div class="dock-header">BLUE LOBBY</div>
-                    <div class="dock-avatars" id="blueLobbyAvatars">
-                        <div class="dock-empty-slot" title="No players in blue lobby">+</div>
+                <!-- Left Dock: Lobby -->
+                <div class="lobby-dock" id="lobbyDock">
+                    <div class="dock-header">LOBBY</div>
+                    <div class="dock-avatars" id="lobbyAvatars">
+                        <div class="dock-empty-slot" title="No players in lobby">+</div>
                     </div>
                 </div>
 
@@ -53,31 +53,31 @@
                     <div class="grid-board" id="gridBoard"></div>
                 </div>
 
-                <!-- Right Dock: Red Lobby -->
-                <div class="lobby-dock red-dock" id="redLobbyDock">
-                    <div class="dock-header">RED LOBBY</div>
-                    <div class="dock-avatars" id="redLobbyAvatars">
-                        <div class="dock-empty-slot" title="No players in red lobby">+</div>
+                <!-- Right Dock: Leaderboard -->
+                <div class="lobby-dock" id="leaderboardDock">
+                    <div class="dock-header">LEADERBOARD</div>
+                    <div class="dock-avatars" id="leaderboardAvatars">
+                        <div class="dock-empty-slot" title="No players on map">-</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Team Stats Bar -->
+            <!-- Stats Bar -->
             <div class="team-stats-row">
-                <div class="team-stat blue">
-                    <span class="team-dot"></span>
-                    <span class="team-name">Blue Team:</span>
-                    <span class="stat-value" id="blueScore">0</span> squares
-                </div>
                 <div class="team-stat neutral">
-                    <span class="team-dot"></span>
-                    <span class="team-name">Neutral:</span>
-                    <span class="stat-value" id="neutralScore">36</span> squares
+                    <span class="team-dot" style="background-color: var(--text-muted);"></span>
+                    <span class="team-name">Neutral Tiles:</span>
+                    <span class="stat-value" id="neutralScore">36</span>
                 </div>
-                <div class="team-stat red">
-                    <span class="team-dot"></span>
-                    <span class="team-name">Red Team:</span>
-                    <span class="stat-value" id="redScore">0</span> squares
+                <div class="team-stat active-players">
+                    <span class="team-dot" style="background-color: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+                    <span class="team-name">Active Players:</span>
+                    <span class="stat-value" id="activePlayersCount">0</span>
+                </div>
+                <div class="team-stat leader">
+                    <span class="team-dot" style="background-color: var(--coin-gold); box-shadow: 0 0 8px var(--coin-gold);"></span>
+                    <span class="team-name">Top Conqueror:</span>
+                    <span class="stat-value" id="topConqueror">None</span>
                 </div>
             </div>
         </main>
@@ -91,19 +91,8 @@
 
             <!-- Player config -->
             <div class="config-section">
-                <h3>1. Choose Your Team</h3>
-                <div class="team-selector">
-                    <button class="team-btn blue active" id="selectBlueTeam" data-team="blue">
-                        <span class="color-preview"></span>
-                        Blue
-                    </button>
-                    <button class="team-btn red" id="selectRedTeam" data-team="red">
-                        <span class="color-preview"></span>
-                        Red
-                    </button>
-                </div>
-                
-                <div class="input-wrap">
+                <h3>1. Set Username</h3>
+                <div class="input-wrap" style="margin-bottom: 12px;">
                     <label for="viewerName">Viewer Username</label>
                     <input type="text" id="viewerName" value="Gamer_Pro" autocomplete="off" spellcheck="false">
                 </div>
