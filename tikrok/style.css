@@ -1440,6 +1440,31 @@ input:checked + .slider:before {
     box-shadow: 0 0 15px var(--owner-color), 0 0 30px var(--owner-color-glow);
 }
 
+.leaderboard-row.hurt {
+    animation: leaderboardHurt 0.5s ease-out;
+}
+
+@keyframes leaderboardHurt {
+    0% {
+        transform: scale(1);
+        background-color: rgba(239, 68, 68, 0.4);
+        border-color: #ef4444;
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+    }
+    20%, 60% {
+        transform: translateX(-4px) rotate(-1deg);
+    }
+    40%, 80% {
+        transform: translateX(4px) rotate(1deg);
+    }
+    100% {
+        transform: scale(1);
+        background-color: rgba(255, 255, 255, 0.02);
+        border-color: var(--border-glass);
+        box-shadow: none;
+    }
+}
+
 .leaderboard-rank {
     font-size: 10px;
     font-weight: 800;

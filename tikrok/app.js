@@ -470,6 +470,42 @@ function spawnFloatingText(squareId, text, type = 'damage') {
     });
 }
 
+function spawnLeaderboardFloatingText(username, text) {
+    const dock = document.getElementById('leaderboardDock');
+    if (!dock) return;
+
+    // Find the row element
+    const rowEl = dock.querySelector(`.leaderboard-row[data-username="${username}"]`);
+    if (!rowEl) return;
+
+    const dockRect = dock.getBoundingClientRect();
+    const rowRect = rowEl.getBoundingClientRect();
+
+    // Position relative to #leaderboardDock
+    const left = rowRect.left - dockRect.left + rowRect.width / 2 - 20;
+    const top = rowRect.top - dockRect.top + rowRect.height / 2 - 10;
+
+    const floatEl = document.createElement('div');
+    floatEl.className = 'floating-text damage';
+    floatEl.textContent = text;
+    floatEl.style.position = 'absolute';
+    floatEl.style.left = `${left}px`;
+    floatEl.style.top = `${top}px`;
+    floatEl.style.zIndex = '1000';
+
+    // RPG style random angle and horizontal drift
+    const angle = (Math.random() - 0.5) * 20; // -10deg to +10deg
+    const drift = (Math.random() - 0.5) * 30; // -15px to +15px
+    floatEl.style.setProperty('--drift-x', `${drift}px`);
+    floatEl.style.setProperty('--rotate-angle', `${angle}deg`);
+
+    dock.appendChild(floatEl);
+
+    floatEl.addEventListener('animationend', () => {
+        floatEl.remove();
+    });
+}
+
 function spawnParticles(squareId, colorType) {
     const boardEl = document.getElementById('gridBoard');
     if (!boardEl) return;
@@ -531,13 +567,20 @@ function registerActivePlayer(username) {
             name: username,
             avatar: `https://robohash.org/${encodeURIComponent(username)}?set=set4`,
             squaresCount: 0,
-            attacking: false
+            attacking: false,
+            hurt: false
         };
     }
 }
 
 // Recalculate owned squares for the Roster
 function updatePlayerRoster() {
+    // Save old counts to detect territory loss
+    const oldCounts = {};
+    Object.values(activePlayers).forEach(p => {
+        oldCounts[p.name] = p.squaresCount;
+    });
+
     // Reset counts
     Object.values(activePlayers).forEach(p => p.squaresCount = 0);
     
@@ -548,6 +591,20 @@ function updatePlayerRoster() {
             if (activePlayers[s.ownerName]) {
                 activePlayers[s.ownerName].squaresCount++;
             }
+        }
+    });
+
+    // Detect territory loss and trigger visual hurt FX
+    Object.values(activePlayers).forEach(p => {
+        const prev = oldCounts[p.name] || 0;
+        const current = p.squaresCount;
+        if (prev > current && prev > 0) {
+            p.hurt = true;
+            // Wait brief moment for DOM render, then spawn floating text
+            setTimeout(() => {
+                const lostCount = prev - current;
+                spawnLeaderboardFloatingText(p.name, `-${lostCount} Tile${lostCount > 1 ? 's' : ''} 💔`);
+            }, 50);
         }
     });
     
@@ -643,12 +700,13 @@ function renderLeaderboardDock() {
     } else {
         leaderboardAvatarsEl.innerHTML = players.map((p, index) => {
             const attackingClass = p.attacking ? 'attacking' : '';
+            const hurtClass = p.hurt ? 'hurt' : '';
             const playerColor = getPlayerColor(p.name);
             const playerGlow = getPlayerColorGlow(p.name);
             const rankLabel = index === 0 ? '👑' : `#${index + 1}`;
             const percent = ((p.squaresCount / (GRID_SIZE * GRID_SIZE)) * 100).toFixed(1);
             return `
-                <div class="leaderboard-row ${attackingClass}" data-username="${p.name}" style="--owner-color: ${playerColor}; --owner-color-glow: ${playerGlow};" title="${rankLabel} ${p.name}: ${p.squaresCount} tiles (${percent}%)">
+                <div class="leaderboard-row ${attackingClass} ${hurtClass}" data-username="${p.name}" style="--owner-color: ${playerColor}; --owner-color-glow: ${playerGlow};" title="${rankLabel} ${p.name}: ${p.squaresCount} tiles (${percent}%)">
                     <div class="leaderboard-rank">${rankLabel}</div>
                     <div class="leaderboard-avatar-wrap">
                         <img src="${p.avatar}" alt="${p.name}">
@@ -1323,6 +1381,21 @@ document.addEventListener('DOMContentLoaded', () => {
         arena.addEventListener('animationend', (e) => {
             if (e.target.classList.contains('flash-screen')) {
                 e.target.classList.remove('flash-screen');
+            }
+        });
+    }
+
+    // Cleanup hurt class on leaderboard rows after animation finishes
+    const lbAvatars = document.getElementById('leaderboardAvatars');
+    if (lbAvatars) {
+        lbAvatars.addEventListener('animationend', (e) => {
+            const row = e.target.closest('.leaderboard-row');
+            if (row) {
+                const username = row.dataset.username;
+                if (username && activePlayers[username]) {
+                    activePlayers[username].hurt = false;
+                    row.classList.remove('hurt');
+                }
             }
         });
     }
