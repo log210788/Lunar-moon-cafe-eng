@@ -165,6 +165,7 @@ let matchDuration = 180;
 let matchTimerInterval = null;
 let isTimerRunning = false;
 let isGameFinished = false;
+let isShuffling = false;
 
 // Prize Pool definition (36 total items for 6x6 grid)
 const PRIZE_POOL = [
@@ -940,6 +941,10 @@ function handleRandomLike(user) {
         logActivity("System: The round is finished! Reset the match to play again.", "system");
         return;
     }
+    if (isShuffling) {
+        logActivity("System: Prizes are currently being shuffled. Wait for match start!", "system");
+        return;
+    }
     if (!isTimerRunning) {
         logActivity("System: Match is not active. Click 'Start Match' to begin!", "system");
         return;
@@ -1014,7 +1019,7 @@ function handleRandomLike(user) {
 
 // Rose Attack donation (Chooses a Random Enemy Square)
 function handleRandomDamage(amount, attacker) {
-    if (isGameFinished || !isTimerRunning) return;
+    if (isGameFinished || isShuffling || !isTimerRunning) return;
 
     const enemySquares = boardState.filter(s => s.ownerName !== 'System' && s.ownerName !== attacker);
     
@@ -1068,7 +1073,7 @@ function handleRandomDamage(amount, attacker) {
 
 // Boost Shield donation (Chooses a Random Owned Square)
 function handleRandomShield(amount, user) {
-    if (isGameFinished || !isTimerRunning) return;
+    if (isGameFinished || isShuffling || !isTimerRunning) return;
 
     // Prioritize owned squares that are NOT already immune
     const ownedSquares = boardState.filter(s => s.ownerName === user && !s.immune);
@@ -1167,6 +1172,10 @@ function launchCrossNuke(user) {
         logActivity("System: Round is finished! Reset match to trigger nukes.", "system");
         return;
     }
+    if (isShuffling) {
+        logActivity("System: Prizes are shuffling. Wait for match start!", "system");
+        return;
+    }
     if (!isTimerRunning) {
         logActivity("System: Match not active. Start match to fire nukes!", "system");
         return;
@@ -1210,6 +1219,10 @@ function launchAreaNuke(user) {
         logActivity("System: Round is finished! Reset match to trigger nukes.", "system");
         return;
     }
+    if (isShuffling) {
+        logActivity("System: Prizes are shuffling. Wait for match start!", "system");
+        return;
+    }
     if (!isTimerRunning) {
         logActivity("System: Match not active. Start match to fire nukes!", "system");
         return;
@@ -1245,6 +1258,10 @@ function launchAreaNuke(user) {
 function launchLaserNuke(user) {
     if (isGameFinished) {
         logActivity("System: Round is finished! Reset match to trigger nukes.", "system");
+        return;
+    }
+    if (isShuffling) {
+        logActivity("System: Prizes are shuffling. Wait for match start!", "system");
         return;
     }
     if (!isTimerRunning) {
@@ -1283,6 +1300,10 @@ function launchLaserNuke(user) {
 function launchMegaNuke(user) {
     if (isGameFinished) {
         logActivity("System: Round is finished! Reset match to trigger nukes.", "system");
+        return;
+    }
+    if (isShuffling) {
+        logActivity("System: Prizes are shuffling. Wait for match start!", "system");
         return;
     }
     if (!isTimerRunning) {
@@ -1376,7 +1397,7 @@ function startAutoSimulation() {
     if (autoSimInterval) return;
     
     autoSimInterval = setInterval(() => {
-        if (isGameFinished || !isTimerRunning) return;
+        if (isGameFinished || isShuffling || !isTimerRunning) return;
         const viewer = BOT_VIEWERS[Math.floor(Math.random() * BOT_VIEWERS.length)];
         const roll = Math.random();
         
@@ -1433,28 +1454,80 @@ function updateTimerDisplay() {
 }
 
 function startMatchTimer() {
-    if (isTimerRunning || isGameFinished) return;
+    if (isTimerRunning || isGameFinished || isShuffling) return;
     initAudio();
 
-    isTimerRunning = true;
+    // 1. Enter shuffling & preview state
+    isShuffling = true;
     updateTimerControlButtons();
-    logActivity("System: The Match has started! Conquer the board!", "system");
 
-    matchTimerInterval = setInterval(() => {
-        if (matchTimeLeft > 0) {
-            matchTimeLeft--;
-            updateTimerDisplay();
-            
-            // Play countdown sound on last 5 seconds
-            if (matchTimeLeft <= 5 && matchTimeLeft > 0) {
-                playSound('like'); // quick beep
+    // 2. Shuffle prizes and make them all visible
+    shufflePrizes();
+    boardState.forEach(s => s.revealed = true);
+    renderBoard();
+
+    // 3. Update UI to show we are previewing prizes
+    const labelEl = document.querySelector('.timer-label');
+    if (labelEl) labelEl.textContent = "🔮 PREVIEWING PRIZES...";
+    logActivity("🔮 <b>PREVIEW:</b> Take a look at this round's mystery prizes! Shuffling in 3 seconds...", "system");
+    playSound('shield'); // play reveal-like sound
+
+    // 4. Stagger flip them back to hidden after a 2.5s preview
+    setTimeout(() => {
+        if (labelEl) labelEl.textContent = "🎲 SHUFFLING & HIDING...";
+        logActivity("🎲 Shuffling prizes into the board...", "system");
+
+        let index = 0;
+        const staggerTime = 25; // ms per tile
+        
+        function hideNextTile() {
+            // Check if game was reset while previewing
+            if (!isShuffling) return;
+
+            if (index < boardState.length) {
+                const square = boardState[index];
+                square.revealed = false;
+                
+                // Trigger 3D flip animation
+                triggerVisualFX(square.id, 'reveal-flip');
+                
+                // Play a brief sweep sound effect
+                if (index % 3 === 0) {
+                    playSound('like');
+                }
+                
+                renderBoard();
+                index++;
+                setTimeout(hideNextTile, staggerTime);
+            } else {
+                // Done hiding! Now start the actual countdown timer
+                isShuffling = false;
+                isTimerRunning = true;
+                updateTimerControlButtons();
+                if (labelEl) labelEl.textContent = "MATCH TIME REMAINING";
+                logActivity("👍 <b>MATCH ACTIVE!</b> The prizes are hidden. Start liking and attacking to conquer them!", "system");
+                playSound('nuke-cross'); // start signal
+
+                matchTimerInterval = setInterval(() => {
+                    if (matchTimeLeft > 0) {
+                        matchTimeLeft--;
+                        updateTimerDisplay();
+                        
+                        // Play countdown sound on last 5 seconds
+                        if (matchTimeLeft <= 5 && matchTimeLeft > 0) {
+                            playSound('like'); // quick beep
+                        }
+                    } else {
+                        clearInterval(matchTimerInterval);
+                        matchTimerInterval = null;
+                        endMatchAndReveal();
+                    }
+                }, 1000);
             }
-        } else {
-            clearInterval(matchTimerInterval);
-            matchTimerInterval = null;
-            endMatchAndReveal();
         }
-    }, 1000);
+
+        hideNextTile();
+    }, 2500);
 }
 
 function pauseMatchTimer() {
@@ -1473,6 +1546,7 @@ function resetMatch() {
     }
     isTimerRunning = false;
     isGameFinished = false;
+    isShuffling = false;
     
     const selectEl = document.getElementById('matchDurationSelect');
     if (selectEl) {
@@ -1489,6 +1563,9 @@ function resetMatch() {
         p.hurt = false;
         p.squaresCount = 0;
     });
+
+    const labelEl = document.querySelector('.timer-label');
+    if (labelEl) labelEl.textContent = "MATCH TIME REMAINING";
 
     updateTimerDisplay();
     updateTimerControlButtons();
