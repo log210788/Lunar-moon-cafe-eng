@@ -164,11 +164,10 @@ let matchTimeLeft = 180; // default 3 minutes (180 seconds)
 let matchDuration = 180;
 let matchTimerInterval = null;
 let shuffleInterval = null;
-let scrambleInterval = null;
+let positionShuffleInterval = null;
 let shuffleTimeout1 = null;
 let shuffleTimeout2 = null;
 let shuffleTimeout3 = null;
-let shuffleTimeout4 = null;
 let isTimerRunning = false;
 let isGameFinished = false;
 let isShuffling = false;
@@ -340,7 +339,8 @@ function initBoard() {
             activeEffect: null,
             prize: null,
             revealed: false,
-            isShuffling: false
+            isShuffling: false,
+            visualIndex: i
         });
     }
     shufflePrizes();
@@ -366,14 +366,6 @@ function renderBoard() {
                 sqEl.id = `square-${square.id}`;
                 sqEl.dataset.id = square.id;
 
-                const left = c * 82 + (r % 2 === 1 ? 41 : 0);
-                const top = r * 69 + 12;
-                const zIndex = 6 - r;
-
-                sqEl.style.left = `${left}px`;
-                sqEl.style.top = `${top}px`;
-                sqEl.style.zIndex = zIndex;
-
                 sqEl.addEventListener('click', () => {
                     selectSquare(square.id);
                 });
@@ -391,6 +383,18 @@ function renderBoard() {
 
                 boardEl.appendChild(sqEl);
             }
+
+            // Sync Dynamic Position based on visualIndex
+            const visualIdx = square.visualIndex !== undefined ? square.visualIndex : square.id;
+            const visualRow = Math.floor(visualIdx / GRID_SIZE);
+            const visualCol = visualIdx % GRID_SIZE;
+            const left = visualCol * 82 + (visualRow % 2 === 1 ? 41 : 0);
+            const top = visualRow * 69 + 12;
+            const zIndex = 6 - visualRow;
+
+            sqEl.style.left = `${left}px`;
+            sqEl.style.top = `${top}px`;
+            sqEl.style.zIndex = zIndex;
 
             // Sync Classes
             const isOwned = square.ownerName !== 'System';
@@ -1588,11 +1592,24 @@ function startMatchTimer() {
 
         const boardEl = document.getElementById('gridBoard');
 
+        // Helper to swap coordinates of all hexagons
+        function shuffleVisualPositions() {
+            const indices = Array.from({ length: boardState.length }, (_, idx) => idx);
+            indices.sort(() => Math.random() - 0.5);
+            boardState.forEach((s, idx) => {
+                s.visualIndex = indices[idx];
+            });
+            renderBoard();
+        }
+
         // Start wiggling the whole board immediately
         boardState.forEach(s => {
             s.isShuffling = true;
         });
-        renderBoard();
+
+        // Immediately start swirling positions
+        shuffleVisualPositions();
+        positionShuffleInterval = setInterval(shuffleVisualPositions, 700);
 
         // Slot machine rolling effect loop (updates tiles that have landed)
         let tickCount = 0;
@@ -1722,9 +1739,16 @@ function startMatchTimer() {
                     // Transition to final randomized positions
                     clearInterval(shuffleInterval);
                     shuffleInterval = null;
+                    if (positionShuffleInterval) {
+                        clearInterval(positionShuffleInterval);
+                        positionShuffleInterval = null;
+                    }
 
-                    // Stop wiggles on all tiles
-                    boardState.forEach(s => s.isShuffling = false);
+                    // Reset all visualIndex back to s.id so they slide home, and stop wiggles
+                    boardState.forEach(s => {
+                        s.visualIndex = s.id;
+                        s.isShuffling = false;
+                    });
 
                     // Choose the final target indices where prizes will rest
                     const allIndices = Array.from({ length: boardState.length }, (_, idx) => idx);
@@ -1831,9 +1855,9 @@ function resetMatch() {
         clearInterval(shuffleInterval);
         shuffleInterval = null;
     }
-    if (scrambleInterval) {
-        clearInterval(scrambleInterval);
-        scrambleInterval = null;
+    if (positionShuffleInterval) {
+        clearInterval(positionShuffleInterval);
+        positionShuffleInterval = null;
     }
     if (shuffleTimeout1) {
         clearTimeout(shuffleTimeout1);

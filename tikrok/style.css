@@ -1734,9 +1734,10 @@ input:checked + .slider:before {
     100% { transform: rotateY(360deg); }
 }
 
-/* Shuffling board tiles vibration */
+/* Shuffling board tiles vibration and sliding transition */
 .grid-square.shuffling-tile {
     animation: tileShuffleWiggle 0.3s infinite ease-in-out;
+    transition: left 0.7s cubic-bezier(0.4, 0, 0.2, 1), top 0.7s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 @keyframes tileShuffleWiggle {
