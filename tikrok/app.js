@@ -163,9 +163,14 @@ let activePlayers = {}; // stores active viewers and their board statuses
 let matchTimeLeft = 180; // default 3 minutes (180 seconds)
 let matchDuration = 180;
 let matchTimerInterval = null;
+let shuffleInterval = null;
+let shuffleTimeout1 = null;
+let shuffleTimeout2 = null;
+let shuffleTimeout3 = null;
 let isTimerRunning = false;
 let isGameFinished = false;
 let isShuffling = false;
+let isVisualShuffling = false;
 
 // Prize Pool definition (36 total items for 6x6 grid)
 const PRIZE_POOL = [
@@ -328,6 +333,7 @@ function renderBoard() {
             sqEl.classList.toggle('selected', square.id === lastTargetId);
             sqEl.classList.toggle('shielded', square.shield > 0);
             sqEl.classList.toggle('immune', square.immune);
+            sqEl.classList.toggle('shuffling-tile', isVisualShuffling);
 
             // Sync active animation classes
             ['shake', 'takeover-flash', 'under-attack', 'deflected'].forEach(eff => {
@@ -348,7 +354,8 @@ function renderBoard() {
             let prizeBadgeHtml = '';
             if (square.prize) {
                 const prizeIcon = square.revealed ? square.prize.icon : '🎁';
-                prizeBadgeHtml = `<span class="prize-badge ${square.revealed ? 'revealed' : ''}" title="${square.revealed ? square.prize.name : 'Mystery Prize'}">${prizeIcon}</span>`;
+                const shufflingClass = isVisualShuffling ? 'shuffling' : (square.revealed ? 'revealed' : '');
+                prizeBadgeHtml = `<span class="prize-badge ${shufflingClass}" title="${square.revealed ? square.prize.name : 'Mystery Prize'}">${prizeIcon}</span>`;
             }
 
             // Build inner HTML structure only on first load
@@ -1459,74 +1466,140 @@ function startMatchTimer() {
 
     // 1. Enter shuffling & preview state
     isShuffling = true;
+    isVisualShuffling = false;
     updateTimerControlButtons();
 
-    // 2. Shuffle prizes and make them all visible
-    shufflePrizes();
-    boardState.forEach(s => s.revealed = true);
+    // 2. Assign Ordered (unshuffled) prizes for the showcase
+    for (let i = 0; i < boardState.length; i++) {
+        boardState[i].prize = PRIZE_POOL[i] || { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' };
+        boardState[i].revealed = true;
+    }
     renderBoard();
 
-    // 3. Update UI to show we are previewing prizes
+    // 3. Update UI to show showcase preview
     const labelEl = document.querySelector('.timer-label');
-    if (labelEl) labelEl.textContent = "🔮 PREVIEWING PRIZES...";
-    logActivity("🔮 <b>PREVIEW:</b> Take a look at this round's mystery prizes! Shuffling in 3 seconds...", "system");
+    if (labelEl) labelEl.textContent = "🔮 INITIAL PRIZES POOL";
+    logActivity("🔮 <b>SHOWCASE:</b> Take a look at this round's prize pool! Shuffling in 2.5 seconds...", "system");
     playSound('shield'); // play reveal-like sound
 
-    // 4. Stagger flip them back to hidden after a 2.5s preview
-    setTimeout(() => {
-        if (labelEl) labelEl.textContent = "🎲 SHUFFLING & HIDING...";
-        logActivity("🎲 Shuffling prizes into the board...", "system");
+    // 4. Start visual shuffling after 2.5 seconds showcase
+    shuffleTimeout1 = setTimeout(() => {
+        if (!isShuffling) return;
 
-        let index = 0;
-        const staggerTime = 25; // ms per tile
-        
-        function hideNextTile() {
-            // Check if game was reset while previewing
-            if (!isShuffling) return;
+        isVisualShuffling = true;
+        if (labelEl) labelEl.textContent = "🎲 SHUFFLING INTO BOARD...";
+        logActivity("🎲 Shuffling prizes into random tiles...", "system");
+        renderBoard(); // apply shuffling classes
 
-            if (index < boardState.length) {
-                const square = boardState[index];
-                square.revealed = false;
-                
-                // Trigger 3D flip animation
-                triggerVisualFX(square.id, 'reveal-flip');
-                
-                // Play a brief sweep sound effect
-                if (index % 3 === 0) {
-                    playSound('like');
-                }
-                
-                renderBoard();
-                index++;
-                setTimeout(hideNextTile, staggerTime);
-            } else {
-                // Done hiding! Now start the actual countdown timer
-                isShuffling = false;
-                isTimerRunning = true;
-                updateTimerControlButtons();
-                if (labelEl) labelEl.textContent = "MATCH TIME REMAINING";
-                logActivity("👍 <b>MATCH ACTIVE!</b> The prizes are hidden. Start liking and attacking to conquer them!", "system");
-                playSound('nuke-cross'); // start signal
-
-                matchTimerInterval = setInterval(() => {
-                    if (matchTimeLeft > 0) {
-                        matchTimeLeft--;
-                        updateTimerDisplay();
-                        
-                        // Play countdown sound on last 5 seconds
-                        if (matchTimeLeft <= 5 && matchTimeLeft > 0) {
-                            playSound('like'); // quick beep
-                        }
-                    } else {
-                        clearInterval(matchTimerInterval);
-                        matchTimerInterval = null;
-                        endMatchAndReveal();
-                    }
-                }, 1000);
+        // Slot machine rolling effect loop
+        let tickCount = 0;
+        shuffleInterval = setInterval(() => {
+            if (!isShuffling) {
+                clearInterval(shuffleInterval);
+                shuffleInterval = null;
+                return;
             }
-        }
+            // Play a fast tick sound
+            if (tickCount % 2 === 0) {
+                playSound('like');
+            }
+            tickCount++;
 
-        hideNextTile();
+            // Randomize icons in the DOM
+            boardState.forEach(s => {
+                const sqEl = document.getElementById(`square-${s.id}`);
+                if (sqEl) {
+                    const badgeEl = sqEl.querySelector('.prize-badge');
+                    if (badgeEl) {
+                        const randomPrize = PRIZE_POOL[Math.floor(Math.random() * PRIZE_POOL.length)];
+                        badgeEl.textContent = randomPrize.icon;
+                    }
+                }
+            });
+        }, 60);
+
+        // 5. Stop shuffling and reveal actual positions after 1.8 seconds of rolling
+        shuffleTimeout2 = setTimeout(() => {
+            if (!isShuffling) {
+                if (shuffleInterval) {
+                    clearInterval(shuffleInterval);
+                    shuffleInterval = null;
+                }
+                return;
+            }
+
+            clearInterval(shuffleInterval);
+            shuffleInterval = null;
+            isVisualShuffling = false;
+
+            // Perform actual randomized shuffle
+            shufflePrizes();
+            // Ensure all are revealed
+            boardState.forEach(s => s.revealed = true);
+            renderBoard();
+
+            if (labelEl) labelEl.textContent = "🧠 MEMORIZE POSITIONS!";
+            logActivity("🔮 <b>MEMORIZE:</b> Look closely! Prizes hiding in 2 seconds...", "system");
+            playSound('shield');
+
+            // 6. Stagger hide sweep after 2 seconds
+            shuffleTimeout3 = setTimeout(() => {
+                if (!isShuffling) return;
+
+                if (labelEl) labelEl.textContent = "🎲 HIDING PRIZES...";
+                logActivity("🎲 Hiding the prizes face-down...", "system");
+
+                let index = 0;
+                const staggerTime = 25; // ms per tile
+                
+                function hideNextTile() {
+                    if (!isShuffling) return;
+
+                    if (index < boardState.length) {
+                        const square = boardState[index];
+                        square.revealed = false;
+                        
+                        // Trigger 3D flip animation
+                        triggerVisualFX(square.id, 'reveal-flip');
+                        
+                        // Play a brief sweep sound effect
+                        if (index % 3 === 0) {
+                            playSound('like');
+                        }
+                        
+                        renderBoard();
+                        index++;
+                        shuffleTimeout3 = setTimeout(hideNextTile, staggerTime);
+                    } else {
+                        // Done hiding! Now start the actual countdown timer
+                        isShuffling = false;
+                        isTimerRunning = true;
+                        updateTimerControlButtons();
+                        if (labelEl) labelEl.textContent = "MATCH TIME REMAINING";
+                        logActivity("👍 <b>MATCH ACTIVE!</b> The prizes are hidden. Start liking and attacking to conquer them!", "system");
+                        playSound('nuke-cross'); // start signal
+
+                        matchTimerInterval = setInterval(() => {
+                            if (matchTimeLeft > 0) {
+                                matchTimeLeft--;
+                                updateTimerDisplay();
+                                
+                                // Play countdown sound on last 5 seconds
+                                if (matchTimeLeft <= 5 && matchTimeLeft > 0) {
+                                    playSound('like'); // quick beep
+                                }
+                            } else {
+                                clearInterval(matchTimerInterval);
+                                matchTimerInterval = null;
+                                endMatchAndReveal();
+                            }
+                        }, 1000);
+                    }
+                }
+
+                hideNextTile();
+            }, 2000);
+        }, 1800);
     }, 2500);
 }
 
@@ -1544,9 +1617,26 @@ function resetMatch() {
         clearInterval(matchTimerInterval);
         matchTimerInterval = null;
     }
+    if (shuffleInterval) {
+        clearInterval(shuffleInterval);
+        shuffleInterval = null;
+    }
+    if (shuffleTimeout1) {
+        clearTimeout(shuffleTimeout1);
+        shuffleTimeout1 = null;
+    }
+    if (shuffleTimeout2) {
+        clearTimeout(shuffleTimeout2);
+        shuffleTimeout2 = null;
+    }
+    if (shuffleTimeout3) {
+        clearTimeout(shuffleTimeout3);
+        shuffleTimeout3 = null;
+    }
     isTimerRunning = false;
     isGameFinished = false;
     isShuffling = false;
+    isVisualShuffling = false;
     
     const selectEl = document.getElementById('matchDurationSelect');
     if (selectEl) {
