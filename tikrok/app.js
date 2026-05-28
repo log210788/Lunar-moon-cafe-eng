@@ -195,8 +195,8 @@ function initBoard() {
         boardState.push({
             id: i,
             coord: getCoordLabel(i),
-            hp: 100,
-            maxHp: 100,
+            hp: 6,
+            maxHp: 6,
             shield: 0,
             team: 'neutral',
             ownerName: 'System',
@@ -277,7 +277,7 @@ function renderBoard() {
 
             // Update details
             const hpPercent = (square.hp / square.maxHp) * 100;
-            const shieldPercent = square.immune ? (square.immuneTimeLeft / 60) * 100 : Math.min(100, (square.shield / 500) * 100);
+            const shieldPercent = square.immune ? (square.immuneTimeLeft / 60) * 100 : Math.min(100, (square.shield / 6) * 100);
 
             let shieldBadgeHtml = '';
             if (square.immune) {
@@ -787,7 +787,7 @@ function launchProjectile(user, targetId, callback) {
 function setSquareOwner(square, ownerName) {
     square.ownerName = ownerName;
     square.team = (ownerName === 'System') ? 'neutral' : 'owned';
-    square.hp = 100;
+    square.hp = 6;
     square.shield = 0;
     if (ownerName === 'System') {
         square.profilePicUrl = '';
@@ -830,25 +830,25 @@ function handleRandomLike(user) {
             spawnParticles(randomIndex, playerColor);
         } else if (target.ownerName === user) {
             // Fortify own square
-            target.hp = Math.min(100, target.hp + 20);
-            logActivity(`👍 <b>${user}</b> liked and fortified their own square <b>${target.coord}</b> (+20 HP).`, 'like');
+            target.hp = Math.min(6, target.hp + 1);
+            logActivity(`👍 <b>${user}</b> liked and fortified their own square <b>${target.coord}</b> (+1 HP).`, 'like');
             playSound('like');
             triggerVisualFX(randomIndex, 'takeover-flash');
-            spawnFloatingText(randomIndex, "+20 HP", "heal");
+            spawnFloatingText(randomIndex, "+1 HP", "heal");
             spawnParticles(randomIndex, 'green');
         } else {
             // Attack enemy square
             triggerVisualFX(randomIndex, 'under-attack');
             if (target.shield > 0) {
-                target.shield = Math.max(0, target.shield - 40);
-                logActivity(`👍 <b>${user}</b> hit <b>${target.ownerName}</b>'s shield on <b>${target.coord}</b> (-40).`, 'shield');
+                target.shield = Math.max(0, target.shield - 1);
+                logActivity(`👍 <b>${user}</b> hit <b>${target.ownerName}</b>'s shield on <b>${target.coord}</b> (-1 SHD).`, 'shield');
                 playSound('damage');
-                spawnFloatingText(randomIndex, "-40 SHD", "damage");
+                spawnFloatingText(randomIndex, "-1 SHD", "damage");
                 spawnParticles(randomIndex, playerColor);
             } else {
-                target.hp = Math.max(0, target.hp - 30);
-                logActivity(`👍 <b>${user}</b> damaged <b>${target.ownerName}</b>'s square <b>${target.coord}</b> (-30 HP).`, 'rose');
-                spawnFloatingText(randomIndex, "-30 HP", "damage");
+                target.hp = Math.max(0, target.hp - 1);
+                logActivity(`👍 <b>${user}</b> damaged <b>${target.ownerName}</b>'s square <b>${target.coord}</b> (-1 HP).`, 'rose');
+                spawnFloatingText(randomIndex, "-1 HP", "damage");
                 spawnParticles(randomIndex, playerColor);
                 
                 if (target.hp <= 0) {
@@ -954,9 +954,9 @@ function handleRandomShield(amount, user) {
         }
 
         // Upgrade shield
-        square.shield = Math.min(500, square.shield + amount);
+        square.shield = Math.min(6, square.shield + amount);
         
-        if (square.shield >= 500) {
+        if (square.shield >= 6) {
             square.immune = true;
             square.immuneTimeLeft = 60;
             logActivity(`👑 <b>SUPERCHARGE!</b> Square <b>${square.coord}</b> has achieved a FULL shield rotation and is now <b>IMMUNE for 60 seconds</b>!`, 'nuke');
@@ -1198,10 +1198,10 @@ function startAutoSimulation() {
             handleRandomLike(viewer);
         } else if (roll < 0.85) {
             // 15% chance: Rose (Damage)
-            handleRandomDamage(50, viewer);
+            handleRandomDamage(2, viewer);
         } else if (roll < 0.94) {
             // 9% chance: Shield
-            handleRandomShield(200, viewer);
+            handleRandomShield(2, viewer);
         } else {
             // 6% chance: Nuke
             const nukeRoll = Math.random();
@@ -1247,13 +1247,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('actionRose').addEventListener('click', () => {
         initAudio();
         const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
-        handleRandomDamage(50, user); // deals 50 damage to random enemy square
+        handleRandomDamage(2, user); // deals 2 damage to random enemy square
     });
 
     document.getElementById('actionShield').addEventListener('click', () => {
         initAudio();
         const user = document.getElementById('viewerName').value.trim() || 'Anonymous';
-        handleRandomShield(500, user); // boosts shield on random owned square
+        handleRandomShield(6, user); // boosts shield on random owned square
     });
 
     // 3. Different Layers of Nukes (All target randomly)
