@@ -1586,6 +1586,12 @@ function startMatchTimer() {
 
         const boardEl = document.getElementById('gridBoard');
 
+        // Start wiggling the whole board immediately
+        boardState.forEach(s => {
+            s.isShuffling = true;
+        });
+        renderBoard();
+
         // Slot machine rolling effect loop (updates tiles that have landed)
         let tickCount = 0;
         shuffleInterval = setInterval(() => {
