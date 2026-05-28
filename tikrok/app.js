@@ -646,10 +646,22 @@ function renderLeaderboardDock() {
             const playerColor = getPlayerColor(p.name);
             const playerGlow = getPlayerColorGlow(p.name);
             const rankLabel = index === 0 ? '👑' : `#${index + 1}`;
+            const percent = ((p.squaresCount / (GRID_SIZE * GRID_SIZE)) * 100).toFixed(1);
             return `
-                <div class="dock-avatar-item ${attackingClass}" data-username="${p.name}" style="border-color: ${playerColor}; --owner-color: ${playerColor}; --owner-color-glow: ${playerGlow};" title="${rankLabel} ${p.name}: ${p.squaresCount} tiles">
-                    <img src="${p.avatar}" alt="${p.name}">
-                    <div class="rank-badge">${p.squaresCount}</div>
+                <div class="leaderboard-row ${attackingClass}" data-username="${p.name}" style="--owner-color: ${playerColor}; --owner-color-glow: ${playerGlow};" title="${rankLabel} ${p.name}: ${p.squaresCount} tiles (${percent}%)">
+                    <div class="leaderboard-rank">${rankLabel}</div>
+                    <div class="leaderboard-avatar-wrap">
+                        <img src="${p.avatar}" alt="${p.name}">
+                    </div>
+                    <div class="leaderboard-info">
+                        <div class="leaderboard-name-row">
+                            <span class="leaderboard-name">${p.name}</span>
+                            <span class="leaderboard-score">${p.squaresCount} (${percent}%)</span>
+                        </div>
+                        <div class="leaderboard-bar-bg">
+                            <div class="leaderboard-bar-fill" style="width: ${percent}%;"></div>
+                        </div>
+                    </div>
                 </div>
             `;
         }).join('');

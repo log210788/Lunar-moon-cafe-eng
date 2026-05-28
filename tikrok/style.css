@@ -1277,8 +1277,10 @@ input:checked + .slider:before {
 }
 
 #leaderboardDock {
+    width: 180px;
     border-color: rgba(245, 158, 11, 0.2);
     box-shadow: 0 10px 30px rgba(245, 158, 11, 0.04), inset 0 0 15px rgba(245, 158, 11, 0.01);
+    padding: 16px 10px;
 }
 
 #leaderboardDock .dock-header {
@@ -1411,6 +1413,111 @@ input:checked + .slider:before {
     100% { opacity: 1; transform: scale(1.05); }
 }
 
+/* Leaderboard Row List Styles */
+.leaderboard-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: 8px;
+    padding: 6px 8px;
+    transition: var(--transition);
+    position: relative;
+    box-sizing: border-box;
+}
+
+.leaderboard-row:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-glass-active);
+    transform: translateY(-1px);
+}
+
+.leaderboard-row.attacking {
+    animation: dockAttackingPulse 0.6s infinite alternate ease-in-out;
+    border-color: #ffffff !important;
+    box-shadow: 0 0 15px var(--owner-color), 0 0 30px var(--owner-color-glow);
+}
+
+.leaderboard-rank {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text-secondary);
+    min-width: 16px;
+    text-align: center;
+}
+
+.leaderboard-row:nth-child(1) .leaderboard-rank {
+    color: var(--coin-gold);
+    font-size: 13px;
+}
+
+.leaderboard-avatar-wrap {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid var(--owner-color, var(--neutral-team));
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.leaderboard-avatar-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.leaderboard-info {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.leaderboard-name-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+}
+
+.leaderboard-name {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 65px;
+}
+
+.leaderboard-score {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--owner-color);
+    white-space: nowrap;
+}
+
+.leaderboard-bar-bg {
+    width: 100%;
+    height: 4px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    margin-top: 3px;
+    overflow: hidden;
+}
+
+.leaderboard-bar-fill {
+    height: 100%;
+    background-color: var(--owner-color);
+    box-shadow: 0 0 6px var(--owner-color-glow);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+}
+
 /* Media Query Adaptations for Docks on small screen */
 @media (max-width: 1100px) {
     .arena-layout-row {
@@ -1426,6 +1533,11 @@ input:checked + .slider:before {
         flex-direction: row;
         padding: 8px 16px;
         align-self: center;
+    }
+    
+    #leaderboardDock {
+        width: 100% !important;
+        max-height: 100px;
     }
     
     .dock-header {
@@ -1445,6 +1557,11 @@ input:checked + .slider:before {
         height: auto;
         padding: 0 8px;
         gap: 8px;
+    }
+    
+    .leaderboard-row {
+        width: 140px;
+        flex-shrink: 0;
     }
 }
 
