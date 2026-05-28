@@ -50,6 +50,11 @@
                 </div>
 
                 <div class="grid-board-wrapper">
+                    <!-- Match Countdown Timer -->
+                    <div class="match-timer-container">
+                        <div class="timer-label">MATCH TIME REMAINING</div>
+                        <div id="matchTimer">03:00</div>
+                    </div>
                     <div class="grid-board" id="gridBoard"></div>
                 </div>
 
@@ -162,8 +167,27 @@
                 </div>
             </div>
 
+            <!-- Streamer Match Controls -->
+            <div class="config-section" style="border-top: 1px solid var(--border-glass); padding-top: 16px; padding-bottom: 16px;">
+                <h3>Streamer Match Controls</h3>
+                <div class="input-wrap" style="margin-bottom: 12px;">
+                    <label for="matchDurationSelect">Round Duration</label>
+                    <select id="matchDurationSelect" style="background-color: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-glass); padding: 8px 12px; border-radius: 8px; color: var(--text-primary); outline: none; font-family: var(--font-body); width: 100%;">
+                        <option value="60">1 Minute</option>
+                        <option value="180" selected>3 Minutes</option>
+                        <option value="300">5 Minutes</option>
+                        <option value="600">10 Minutes</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn" id="btnStartMatch" style="flex: 1; padding: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; font-weight: 600; font-size: 11px;">Start Match</button>
+                    <button class="btn" id="btnPauseMatch" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); color: var(--text-primary); font-weight: 600; font-size: 11px;">Pause</button>
+                    <button class="btn" id="btnResetMatch" style="flex: 1; padding: 10px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; font-weight: 600; font-size: 11px;">Reset</button>
+                </div>
+            </div>
+
             <!-- Auto-Simulate Toggle -->
-            <div class="config-section" style="border-top: 1px solid var(--border-glass); margin-top: auto; padding-top: 16px; padding-bottom: 16px;">
+            <div class="config-section" style="border-top: 1px solid var(--border-glass); padding-top: 16px; padding-bottom: 16px;">
                 <h3>Stream Autoplay (Demo)</h3>
                 <div class="audio-control-row" style="margin: 0; padding: 0; border: none; display: flex; align-items: center; justify-content: space-between;">
                     <div style="display: flex; align-items: center; gap: 12px;">
@@ -195,6 +219,21 @@
                 <h2 id="hypeTitle">GALAXY NUKE!</h2>
                 <p id="hypeSubtitle">Gamer_Pro launched a 5x5 explosion!</p>
             </div>
+        </div>
+    </div>
+
+    <!-- Reveal & Winners Summary Modal Overlay -->
+    <div class="reveal-modal-overlay" id="revealModal">
+        <div class="reveal-modal-content">
+            <div class="modal-header">
+                <span class="modal-title-emoji">🏆</span>
+                <h2>ROUND WINNERS</h2>
+                <p>Mystery Prizes Revealed!</p>
+            </div>
+            <div class="winners-list" id="winnersList">
+                <!-- Dynamically populated rows -->
+            </div>
+            <button class="btn btn-close-modal" id="btnCloseModal">Close & Reset Board</button>
         </div>
     </div>
 

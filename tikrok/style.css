@@ -1590,4 +1590,255 @@ input:checked + .slider:before {
     }
 }
 
+/* Match Countdown Timer Styling */
+.match-timer-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-glass);
+}
+
+.timer-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+#matchTimer {
+    font-family: var(--font-heading);
+    font-size: 34px;
+    font-weight: 800;
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.4), 0 0 20px rgba(0, 210, 255, 0.2);
+    letter-spacing: 0.05em;
+    line-height: 1;
+}
+
+#matchTimer.urgent {
+    color: #ff0055;
+    text-shadow: 0 0 10px rgba(255, 0, 85, 0.6), 0 0 25px rgba(255, 0, 85, 0.4);
+    animation: urgentPulse 0.5s infinite alternate ease-in-out;
+}
+
+@keyframes urgentPulse {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.05); }
+}
+
+/* Prize Icon / Badge inside grid hexagons */
+.prize-badge {
+    font-size: 10px;
+    margin-left: 4px;
+    filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.4));
+    display: inline-block;
+    animation: prizeFloat 2s infinite alternate ease-in-out;
+}
+
+@keyframes prizeFloat {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-1.5px); }
+}
+
+/* 3D Tile Flip Animation for Prize Reveal */
+.grid-square.reveal-flip {
+    animation: tileRevealFlip 0.8s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes tileRevealFlip {
+    0% { transform: rotateY(0); }
+    50% { transform: rotateY(180deg) scale(1.08); }
+    100% { transform: rotateY(360deg); }
+}
+
+/* Winners Summary Modal Overlay styling */
+.reveal-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(3, 7, 18, 0.85);
+    backdrop-filter: blur(16px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+.reveal-modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.reveal-modal-content {
+    background: linear-gradient(135deg, var(--bg-surface) 0%, rgba(15, 23, 42, 0.95) 100%);
+    border: 2px solid rgba(245, 158, 11, 0.3);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(245, 158, 11, 0.15);
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 440px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transform: scale(0.9) translateY(20px);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.reveal-modal-overlay.active .reveal-modal-content {
+    transform: scale(1) translateY(0);
+}
+
+.modal-header {
+    margin-bottom: 24px;
+}
+
+.modal-title-emoji {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 8px;
+    animation: trophyBounce 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes trophyBounce {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-8px) scale(1.05); }
+}
+
+.modal-header h2 {
+    font-size: 24px;
+    color: var(--coin-gold);
+    text-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+}
+
+.modal-header p {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.winners-list {
+    width: 100%;
+    max-height: 240px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 28px;
+    padding: 4px;
+}
+
+.winners-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.winners-list::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.winner-row-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: 12px;
+    padding: 12px 16px;
+    text-align: left;
+    gap: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.winner-player-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 120px;
+}
+
+.winner-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--owner-color);
+    box-shadow: 0 0 8px var(--owner-color-glow);
+}
+
+.winner-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 90px;
+}
+
+.winner-prizes-list {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    text-align: right;
+    gap: 2px;
+    overflow: hidden;
+}
+
+.winner-prize-item {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.winner-prize-item.jackpot {
+    color: var(--coin-gold);
+    font-weight: 800;
+    text-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+}
+
+.btn-close-modal {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--coin-gold) 0%, #d97706 100%);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 5px 15px rgba(245, 158, 11, 0.3);
+    border: none;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-close-modal:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
+}
+
+.btn-close-modal:active {
+    transform: translateY(0);
+}
+
+.no-winners-msg {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 13px;
+    padding: 24px 0;
+}
+
 

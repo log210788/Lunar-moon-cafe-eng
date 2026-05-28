@@ -159,6 +159,53 @@ let boardState = [];
 let lastTargetId = -1; // stores the target of the last simulated action
 let activePlayers = {}; // stores active viewers and their board statuses
 
+// Match Timer & Mystery Prize state variables
+let matchTimeLeft = 180; // default 3 minutes (180 seconds)
+let matchDuration = 180;
+let matchTimerInterval = null;
+let isTimerRunning = false;
+let isGameFinished = false;
+
+// Prize Pool definition (36 total items for 6x6 grid)
+const PRIZE_POOL = [
+    { type: 'jackpot', name: 'PlayStation 5 👑', icon: '👑' },
+    { type: 'major', name: 'Nintendo Switch 🎮', icon: '🎮' },
+    { type: 'major', name: 'Steam Game Key 🔑', icon: '🔑' },
+    { type: 'special', name: 'Moderator Status ⭐', icon: '⭐' },
+    { type: 'special', name: 'Moderator Status ⭐', icon: '⭐' },
+    { type: 'special', name: 'TikTok Follow Back 🤝', icon: '🤝' },
+    { type: 'special', name: 'TikTok Follow Back 🤝', icon: '🤝' },
+    { type: 'special', name: 'Personal Shoutout 📣', icon: '📣' },
+    { type: 'special', name: 'Personal Shoutout 📣', icon: '📣' },
+    { type: 'special', name: 'Custom Discord Role 🎭', icon: '🎭' },
+    { type: 'special', name: 'Custom Discord Role 🎭', icon: '🎭' },
+    { type: 'common', name: '100 TikTok Coins 🪙', icon: '🪙' },
+    { type: 'common', name: '100 TikTok Coins 🪙', icon: '🪙' },
+    { type: 'common', name: '50 TikTok Coins 🪙', icon: '🪙' },
+    { type: 'common', name: '50 TikTok Coins 🪙', icon: '🪙' },
+    { type: 'common', name: '10 TikTok Coins 🪙', icon: '🪙' },
+    { type: 'common', name: '10 TikTok Coins 🪙', icon: '🪙' },
+    { type: 'common', name: 'Double Shoutout XP 📈', icon: '📈' },
+    { type: 'common', name: 'Double Shoutout XP 📈', icon: '📈' },
+    { type: 'common', name: 'Custom Meme Sound 🎵', icon: '🎵' },
+    { type: 'common', name: 'Custom Meme Sound 🎵', icon: '🎵' },
+    { type: 'common', name: 'Join Steam Party 🛸', icon: '🛸' },
+    { type: 'common', name: 'Join Steam Party 🛸', icon: '🛸' },
+    { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' },
+    { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' },
+    { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' },
+    { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' },
+    { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' },
+    { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' },
+    { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' },
+    { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' },
+    { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' },
+    { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' },
+    { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' },
+    { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' },
+    { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' }
+];
+
 // Generate A1, B2 labels from index
 function getCoordLabel(index) {
     const colLetter = String.fromCharCode(65 + (index % GRID_SIZE)); // A, B, C...
@@ -188,6 +235,14 @@ function getPlayerColorGlow(username) {
     return `hsla(${hue}, 85%, 55%, 0.35)`; // transparent glow
 }
 
+function shufflePrizes() {
+    const shuffled = [...PRIZE_POOL].sort(() => Math.random() - 0.5);
+    for (let i = 0; i < boardState.length; i++) {
+        boardState[i].prize = shuffled[i] || { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' };
+        boardState[i].revealed = false;
+    }
+}
+
 // Init board array: ALL start neutral (empty)
 function initBoard() {
     boardState = [];
@@ -203,9 +258,12 @@ function initBoard() {
             profilePicUrl: '',
             immune: false,
             immuneTimeLeft: 0,
-            activeEffect: null
+            activeEffect: null,
+            prize: null,
+            revealed: false
         });
     }
+    shufflePrizes();
 }
 
 // ==========================================================================
@@ -286,6 +344,12 @@ function renderBoard() {
                 shieldBadgeHtml = `<span class="shield-badge">🛡️${square.shield}</span>`;
             }
 
+            let prizeBadgeHtml = '';
+            if (square.prize) {
+                const prizeIcon = square.revealed ? square.prize.icon : '🎁';
+                prizeBadgeHtml = `<span class="prize-badge ${square.revealed ? 'revealed' : ''}" title="${square.revealed ? square.prize.name : 'Mystery Prize'}">${prizeIcon}</span>`;
+            }
+
             // Build inner HTML structure only on first load
             if (!sqEl.querySelector('.square-coord')) {
                 sqEl.innerHTML = `
@@ -307,9 +371,12 @@ function renderBoard() {
                 `;
             }
 
+            // Sync reveal-flip class for animations
+            sqEl.classList.toggle('reveal-flip', square.revealed);
+
             // Update DOM text/HTML values selectively
             const coordEl = sqEl.querySelector('.square-coord');
-            const expectedCoordHtml = `${square.coord}${shieldBadgeHtml}`;
+            const expectedCoordHtml = `${square.coord}${shieldBadgeHtml}${prizeBadgeHtml}`;
             if (coordEl.innerHTML !== expectedCoordHtml) {
                 coordEl.innerHTML = expectedCoordHtml;
             }
@@ -869,6 +936,15 @@ function setSquareOwner(square, ownerName) {
 
 // Input A: Likes Action (Random Placement / Attack)
 function handleRandomLike(user) {
+    if (isGameFinished) {
+        logActivity("System: The round is finished! Reset the match to play again.", "system");
+        return;
+    }
+    if (!isTimerRunning) {
+        logActivity("System: Match is not active. Click 'Start Match' to begin!", "system");
+        return;
+    }
+
     const randomIndex = Math.floor(Math.random() * boardState.length);
     const target = boardState[randomIndex];
     updateLastTargetIndicator(randomIndex);
@@ -938,6 +1014,8 @@ function handleRandomLike(user) {
 
 // Rose Attack donation (Chooses a Random Enemy Square)
 function handleRandomDamage(amount, attacker) {
+    if (isGameFinished || !isTimerRunning) return;
+
     const enemySquares = boardState.filter(s => s.ownerName !== 'System' && s.ownerName !== attacker);
     
     if (enemySquares.length === 0) {
@@ -990,6 +1068,8 @@ function handleRandomDamage(amount, attacker) {
 
 // Boost Shield donation (Chooses a Random Owned Square)
 function handleRandomShield(amount, user) {
+    if (isGameFinished || !isTimerRunning) return;
+
     // Prioritize owned squares that are NOT already immune
     const ownedSquares = boardState.filter(s => s.ownerName === user && !s.immune);
     
@@ -1083,6 +1163,15 @@ function claimSingleSquare(squareId, user) {
 
 // Layer 1: Cross Nuke (Bolt - Cost: 10 Coins)
 function launchCrossNuke(user) {
+    if (isGameFinished) {
+        logActivity("System: Round is finished! Reset match to trigger nukes.", "system");
+        return;
+    }
+    if (!isTimerRunning) {
+        logActivity("System: Match not active. Start match to fire nukes!", "system");
+        return;
+    }
+
     const targetId = Math.floor(Math.random() * boardState.length);
     const target = boardState[targetId];
     updateLastTargetIndicator(targetId);
@@ -1117,6 +1206,15 @@ function launchCrossNuke(user) {
 
 // Layer 2: Area Nuke (Bomb - Cost: 30 Coins)
 function launchAreaNuke(user) {
+    if (isGameFinished) {
+        logActivity("System: Round is finished! Reset match to trigger nukes.", "system");
+        return;
+    }
+    if (!isTimerRunning) {
+        logActivity("System: Match not active. Start match to fire nukes!", "system");
+        return;
+    }
+
     const targetId = Math.floor(Math.random() * boardState.length);
     const target = boardState[targetId];
     updateLastTargetIndicator(targetId);
@@ -1145,6 +1243,15 @@ function launchAreaNuke(user) {
 
 // Layer 3: Laser Column/Row Nuke (Rocket - Cost: 99 Coins)
 function launchLaserNuke(user) {
+    if (isGameFinished) {
+        logActivity("System: Round is finished! Reset match to trigger nukes.", "system");
+        return;
+    }
+    if (!isTimerRunning) {
+        logActivity("System: Match not active. Start match to fire nukes!", "system");
+        return;
+    }
+
     const targetId = Math.floor(Math.random() * boardState.length);
     const target = boardState[targetId];
     updateLastTargetIndicator(targetId);
@@ -1174,6 +1281,15 @@ function launchLaserNuke(user) {
 
 // Layer 4: Mega Galaxy Nuke (Galaxy - Cost: 500 Coins)
 function launchMegaNuke(user) {
+    if (isGameFinished) {
+        logActivity("System: Round is finished! Reset match to trigger nukes.", "system");
+        return;
+    }
+    if (!isTimerRunning) {
+        logActivity("System: Match not active. Start match to fire nukes!", "system");
+        return;
+    }
+
     const targetId = Math.floor(Math.random() * boardState.length);
     const target = boardState[targetId];
     updateLastTargetIndicator(targetId);
@@ -1260,6 +1376,7 @@ function startAutoSimulation() {
     if (autoSimInterval) return;
     
     autoSimInterval = setInterval(() => {
+        if (isGameFinished || !isTimerRunning) return;
         const viewer = BOT_VIEWERS[Math.floor(Math.random() * BOT_VIEWERS.length)];
         const roll = Math.random();
         
@@ -1299,12 +1416,260 @@ function stopAutoSimulation() {
     }
 }
 
+function updateTimerDisplay() {
+    const timerEl = document.getElementById('matchTimer');
+    if (!timerEl) return;
+
+    const mins = Math.floor(matchTimeLeft / 60);
+    const secs = matchTimeLeft % 60;
+    const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    timerEl.textContent = formatted;
+
+    if (matchTimeLeft <= 10 && matchTimeLeft > 0) {
+        timerEl.classList.add('urgent');
+    } else {
+        timerEl.classList.remove('urgent');
+    }
+}
+
+function startMatchTimer() {
+    if (isTimerRunning || isGameFinished) return;
+    initAudio();
+
+    isTimerRunning = true;
+    updateTimerControlButtons();
+    logActivity("System: The Match has started! Conquer the board!", "system");
+
+    matchTimerInterval = setInterval(() => {
+        if (matchTimeLeft > 0) {
+            matchTimeLeft--;
+            updateTimerDisplay();
+            
+            // Play countdown sound on last 5 seconds
+            if (matchTimeLeft <= 5 && matchTimeLeft > 0) {
+                playSound('like'); // quick beep
+            }
+        } else {
+            clearInterval(matchTimerInterval);
+            matchTimerInterval = null;
+            endMatchAndReveal();
+        }
+    }, 1000);
+}
+
+function pauseMatchTimer() {
+    if (!isTimerRunning) return;
+    clearInterval(matchTimerInterval);
+    matchTimerInterval = null;
+    isTimerRunning = false;
+    updateTimerControlButtons();
+    logActivity("System: Match paused.", "system");
+}
+
+function resetMatch() {
+    if (matchTimerInterval) {
+        clearInterval(matchTimerInterval);
+        matchTimerInterval = null;
+    }
+    isTimerRunning = false;
+    isGameFinished = false;
+    
+    const selectEl = document.getElementById('matchDurationSelect');
+    if (selectEl) {
+        matchDuration = parseInt(selectEl.value) || 180;
+    }
+    matchTimeLeft = matchDuration;
+    
+    // Reset board state
+    initBoard();
+    
+    // Reset active player attacking state
+    Object.values(activePlayers).forEach(p => {
+        p.attacking = false;
+        p.hurt = false;
+        p.squaresCount = 0;
+    });
+
+    updateTimerDisplay();
+    updateTimerControlButtons();
+    
+    // Hide reveal modal
+    const modal = document.getElementById('revealModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+
+    logActivity("System: Match reset. All tiles returned to neutral, prizes reshuffled.", "system");
+    renderBoard();
+}
+
+function updateTimerControlButtons() {
+    const startBtn = document.getElementById('btnStartMatch');
+    const pauseBtn = document.getElementById('btnPauseMatch');
+    
+    if (startBtn) {
+        startBtn.disabled = isTimerRunning || isGameFinished;
+        startBtn.style.opacity = (isTimerRunning || isGameFinished) ? '0.5' : '1';
+    }
+    if (pauseBtn) {
+        pauseBtn.disabled = !isTimerRunning;
+        pauseBtn.style.opacity = !isTimerRunning ? '0.5' : '1';
+        pauseBtn.textContent = isTimerRunning ? 'Pause' : 'Paused';
+    }
+}
+
+function endMatchAndReveal() {
+    isTimerRunning = false;
+    isGameFinished = true;
+    updateTimerControlButtons();
+    
+    logActivity("⌛ <b>TIME OVER!</b> The battle is finished! Revealing the mystery prizes...", "system");
+    playSound('nuke-mega'); // play grand sound
+
+    // Stop autoplay bot simulation checkbox visually if checked
+    const toggleSim = document.getElementById('autoSimToggle');
+    if (toggleSim && toggleSim.checked) {
+        toggleSim.checked = false;
+        stopAutoSimulation();
+    }
+
+    // Staggered reveal of mystery tiles: 36 tiles staggered
+    let index = 0;
+    const staggerTime = 40; // ms per tile
+    
+    function revealNextTile() {
+        if (index < boardState.length) {
+            const square = boardState[index];
+            square.revealed = true;
+            
+            // Visual feedback: flip animation and hit particles in player color if owned
+            triggerVisualFX(square.id, 'takeover-flash');
+            if (square.ownerName !== 'System') {
+                const color = getPlayerColor(square.ownerName);
+                spawnParticles(square.id, color);
+            } else {
+                spawnParticles(square.id, 'gold');
+            }
+            
+            playSound('like');
+            renderBoard();
+            
+            index++;
+            setTimeout(revealNextTile, staggerTime);
+        } else {
+            // Reveal finished! Trigger winners list modal
+            setTimeout(showWinnersSummary, 800);
+        }
+    }
+    
+    revealNextTile();
+}
+
+function showWinnersSummary() {
+    const listEl = document.getElementById('winnersList');
+    if (!listEl) return;
+
+    // Aggregate prizes owned by each player
+    const playerPrizes = {};
+    let jackpotWinner = null;
+
+    boardState.forEach(s => {
+        if (s.ownerName !== 'System') {
+            if (!playerPrizes[s.ownerName]) {
+                playerPrizes[s.ownerName] = {
+                    name: s.ownerName,
+                    avatar: s.profilePicUrl || `https://robohash.org/${encodeURIComponent(s.ownerName)}?set=set4`,
+                    prizes: []
+                };
+            }
+            playerPrizes[s.ownerName].prizes.push(s.prize);
+            
+            if (s.prize && s.prize.type === 'jackpot') {
+                jackpotWinner = s.ownerName;
+            }
+        }
+    });
+
+    const winnersArray = Object.values(playerPrizes);
+    winnersArray.sort((a, b) => {
+        const aHasJackpot = a.prizes.some(p => p.type === 'jackpot');
+        const bHasJackpot = b.prizes.some(p => p.type === 'jackpot');
+        if (aHasJackpot) return -1;
+        if (bHasJackpot) return 1;
+        return b.prizes.length - a.prizes.length;
+    });
+
+    if (winnersArray.length === 0) {
+        listEl.innerHTML = `<div class="no-winners-msg">No tiles were conquered! The prizes remain hidden.</div>`;
+    } else {
+        listEl.innerHTML = winnersArray.map(w => {
+            const playerColor = getPlayerColor(w.name);
+            const playerGlow = getPlayerColorGlow(w.name);
+            
+            const countMap = {};
+            w.prizes.forEach(p => {
+                countMap[p.name] = (countMap[p.name] || 0) + 1;
+            });
+            
+            const prizeItemsHtml = Object.entries(countMap).map(([name, count]) => {
+                const isJackpot = name.includes('PS5');
+                const badgeClass = isJackpot ? 'winner-prize-item jackpot' : 'winner-prize-item';
+                return `<div class="${badgeClass}">${count}x ${name}</div>`;
+            }).join('');
+
+            return `
+                <div class="winner-row-card" style="--owner-color: ${playerColor}; --owner-color-glow: ${playerGlow};">
+                    <div class="winner-player-info">
+                        <img class="winner-avatar" src="${w.avatar}" alt="${w.name}">
+                        <span class="winner-name" style="color: ${playerColor};">${w.name}</span>
+                    </div>
+                    <div class="winner-prizes-list">
+                        ${prizeItemsHtml}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    const modal = document.getElementById('revealModal');
+    if (modal) {
+        modal.classList.add('active');
+    }
+
+    if (jackpotWinner) {
+        playSound('nuke-mega');
+        triggerHypeAlert("PS5 JACKPOT WON! 👑", `${jackpotWinner} conquered the PS5 mystery tile!`, "👑", true);
+    } else {
+        playSound('shield');
+    }
+}
+
 // ==========================================================================
 // Event Listeners Initialization
 // ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
     initBoard();
     renderBoard();
+
+    // Initialize Match Controls
+    updateTimerDisplay();
+    updateTimerControlButtons();
+
+    document.getElementById('btnStartMatch').addEventListener('click', startMatchTimer);
+    document.getElementById('btnPauseMatch').addEventListener('click', pauseMatchTimer);
+    document.getElementById('btnResetMatch').addEventListener('click', resetMatch);
+    
+    document.getElementById('matchDurationSelect').addEventListener('change', (e) => {
+        if (!isTimerRunning && !isGameFinished) {
+            matchDuration = parseInt(e.target.value) || 180;
+            matchTimeLeft = matchDuration;
+            updateTimerDisplay();
+        }
+    });
+
+    document.getElementById('btnCloseModal').addEventListener('click', () => {
+        resetMatch();
+    });
 
     // 1. Likes Action Handler (Input A - Random Placement)
     document.getElementById('actionLike').addEventListener('click', () => {
