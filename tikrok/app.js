@@ -171,6 +171,7 @@ let isTimerRunning = false;
 let isGameFinished = false;
 let isShuffling = false;
 let isVisualShuffling = false;
+let activePrizePool = [];
 
 // Prize Pool definition (36 total items for 6x6 grid)
 const PRIZE_POOL = [
@@ -241,12 +242,72 @@ function getPlayerColorGlow(username) {
     return `hsla(${hue}, 85%, 55%, 0.35)`; // transparent glow
 }
 
+function buildActivePrizePool(count) {
+    const activePool = [];
+    
+    // Priority order:
+    // 1. Jackpot PS5 (only if count >= 10)
+    if (count >= 10 && PRIZE_POOL.length > 0) {
+        const ps5 = PRIZE_POOL.find(p => p.type === 'jackpot');
+        if (ps5) activePool.push(ps5);
+    }
+    
+    // 2. Majors (Nintendo Switch, Steam Key)
+    const majors = PRIZE_POOL.filter(p => p.type === 'major');
+    majors.forEach(m => {
+        if (activePool.length < count) {
+            activePool.push(m);
+        }
+    });
+    
+    // 3. Specials
+    const specials = PRIZE_POOL.filter(p => p.type === 'special');
+    specials.forEach(s => {
+        if (activePool.length < count) {
+            activePool.push(s);
+        }
+    });
+    
+    // 4. Commons
+    const commons = PRIZE_POOL.filter(p => p.type === 'common');
+    const shuffledCommons = [...commons].sort(() => Math.random() - 0.5);
+    shuffledCommons.forEach(c => {
+        if (activePool.length < count) {
+            activePool.push(c);
+        }
+    });
+    
+    // Fallback fill
+    while (activePool.length < count) {
+        activePool.push({ type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' });
+    }
+    
+    return activePool;
+}
+
 function shufflePrizes() {
-    const shuffled = [...PRIZE_POOL].sort(() => Math.random() - 0.5);
+    const prizeCountInput = document.getElementById('matchPrizesCountInput');
+    let count = 10;
+    if (prizeCountInput) {
+        count = parseInt(prizeCountInput.value) || 10;
+        count = Math.max(1, Math.min(36, count));
+    }
+    activePrizePool = buildActivePrizePool(count);
+    
+    const shuffledPrizes = [...activePrizePool].sort(() => Math.random() - 0.5);
+    
+    const indices = [];
     for (let i = 0; i < boardState.length; i++) {
-        boardState[i].prize = shuffled[i] || { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' };
+        indices.push(i);
+        boardState[i].prize = null;
         boardState[i].revealed = false;
         boardState[i].isShuffling = false;
+    }
+    indices.sort(() => Math.random() - 0.5);
+    
+    for (let j = 0; j < shuffledPrizes.length; j++) {
+        const tileIdx = indices[j];
+        boardState[tileIdx].prize = shuffledPrizes[j];
     }
 }
 
@@ -1470,7 +1531,6 @@ function updateTimerDisplay() {
         timerEl.classList.remove('urgent');
     }
 }
-
 function startMatchTimer() {
     if (isTimerRunning || isGameFinished || isShuffling) return;
     initAudio();
@@ -1483,11 +1543,26 @@ function startMatchTimer() {
     boardState.forEach(s => {
         s.revealed = false;
         s.isShuffling = false;
+        s.prize = null;
     });
     renderBoard();
 
-    // 3. Populate showcase shelf with ordered prizes
-    renderShowcaseShelf(PRIZE_POOL);
+    // 3. Determine the prize count and build active prize pool
+    const prizeCountInput = document.getElementById('matchPrizesCountInput');
+    let count = 10;
+    if (prizeCountInput) {
+        count = parseInt(prizeCountInput.value) || 10;
+        count = Math.max(1, Math.min(36, count));
+    }
+    activePrizePool = buildActivePrizePool(count);
+    
+    // Choose count random unique tile indices to receive prizes
+    const allIndices = Array.from({ length: boardState.length }, (_, idx) => idx);
+    allIndices.sort(() => Math.random() - 0.5);
+    const targetTileIndices = allIndices.slice(0, count);
+
+    // Populate showcase shelf with active prize pool
+    renderShowcaseShelf(activePrizePool);
     
     // Smoothly show the showcase shelf
     const shelfEl = document.getElementById('prizeShowcaseShelf');
@@ -1499,7 +1574,7 @@ function startMatchTimer() {
     // Update UI to show showcase preview
     const labelEl = document.querySelector('.timer-label');
     if (labelEl) labelEl.textContent = "🔮 INITIAL PRIZES POOL";
-    logActivity("🔮 <b>SHOWCASE:</b> Take a look at this round's prize pool! Dropping into the board in 2.5s...", "system");
+    logActivity(`🔮 <b>SHOWCASE:</b> Take a look at this round's ${count} prizes! Dropping in 2.5s...`, "system");
     playSound('shield'); // play reveal-like sound
 
     // 4. Start visual dropping ceremony after 2.5 seconds showcase
@@ -1528,7 +1603,7 @@ function startMatchTimer() {
                     if (sqEl) {
                         const badgeEl = sqEl.querySelector('.prize-badge');
                         if (badgeEl) {
-                            const randomPrize = PRIZE_POOL[Math.floor(Math.random() * PRIZE_POOL.length)];
+                            const randomPrize = activePrizePool[Math.floor(Math.random() * activePrizePool.length)];
                             badgeEl.textContent = randomPrize.icon;
                         }
                     }
@@ -1536,18 +1611,18 @@ function startMatchTimer() {
             });
         }, 60);
 
-        // Staggered launch of dropping projectiles
+        // Staggered launch of dropping projectiles (N active prizes)
         let launchedCount = 0;
-        const totalItems = boardState.length;
         const dropTravelTime = 500; // ms for the flight
 
         function launchNextDrop() {
             if (!isShuffling) return;
 
-            if (launchedCount < totalItems) {
+            if (launchedCount < count) {
                 const i = launchedCount;
-                const square = boardState[i];
-                const prize = PRIZE_POOL[i];
+                const tileIdx = targetTileIndices[i];
+                const square = boardState[tileIdx];
+                const prize = activePrizePool[i];
 
                 // Find elements
                 const showcaseItem = document.getElementById(`showcase-item-${i}`);
@@ -1562,8 +1637,8 @@ function startMatchTimer() {
                 }
 
                 // Calculate target position in hex grid relative to #gridBoard
-                const row = Math.floor(i / GRID_SIZE);
-                const col = i % GRID_SIZE;
+                const row = Math.floor(tileIdx / GRID_SIZE);
+                const col = tileIdx % GRID_SIZE;
                 const destX = col * 82 + (row % 2 === 1 ? 41 : 0) + 40 - 12;
                 const destY = row * 69 + 12 + 46 - 12;
 
@@ -1624,8 +1699,8 @@ function startMatchTimer() {
                     square.isShuffling = true;
                     
                     playSound('like');
-                    spawnParticles(i, prizeColor);
-                    triggerVisualFX(i, 'takeover-flash');
+                    spawnParticles(tileIdx, prizeColor);
+                    triggerVisualFX(tileIdx, 'takeover-flash');
                     renderBoard();
                 }, dropTravelTime);
 
@@ -1645,9 +1720,15 @@ function startMatchTimer() {
                     boardState.forEach(s => s.isShuffling = false);
 
                     // Perform actual randomized shuffle
-                    shufflePrizes();
-                    // Ensure all are revealed
-                    boardState.forEach(s => s.revealed = true);
+                    boardState.forEach(s => s.prize = null);
+                    
+                    const finalShuffledPrizes = [...activePrizePool].sort(() => Math.random() - 0.5);
+                    
+                    for (let k = 0; k < targetTileIndices.length; k++) {
+                        const tIdx = targetTileIndices[k];
+                        boardState[tIdx].prize = finalShuffledPrizes[k];
+                        boardState[tIdx].revealed = true;
+                    }
                     renderBoard();
 
                     if (labelEl) labelEl.textContent = "🧠 MEMORIZE POSITIONS!";
@@ -1666,26 +1747,27 @@ function startMatchTimer() {
                         if (labelEl) labelEl.textContent = "🎲 HIDING PRIZES...";
                         logActivity("🎲 Hiding the prizes face-down...", "system");
 
-                        let index = 0;
+                        let sweepIdx = 0;
                         const staggerTime = 25; // ms per tile
                         
                         function hideNextTile() {
                             if (!isShuffling) return;
 
-                            if (index < boardState.length) {
-                                const square = boardState[index];
+                            if (sweepIdx < targetTileIndices.length) {
+                                const tIdx = targetTileIndices[sweepIdx];
+                                const square = boardState[tIdx];
                                 square.revealed = false;
                                 
                                 // Trigger 3D flip animation
-                                triggerVisualFX(square.id, 'reveal-flip');
+                                triggerVisualFX(tIdx, 'reveal-flip');
                                 
                                 // Play a brief sweep sound effect
-                                if (index % 3 === 0) {
+                                if (sweepIdx % 3 === 0) {
                                     playSound('like');
                                 }
                                 
                                 renderBoard();
-                                index++;
+                                sweepIdx++;
                                 shuffleTimeout3 = setTimeout(hideNextTile, staggerTime);
                             } else {
                                 // Done hiding! Now start the actual countdown timer
@@ -1773,7 +1855,7 @@ function resetMatch() {
     droppings.forEach(d => d.remove());
 
     // Reset shelf state
-    renderShowcaseShelf(PRIZE_POOL);
+    renderShowcaseShelf(activePrizePool);
     const shelfEl = document.getElementById('prizeShowcaseShelf');
     if (shelfEl) {
         shelfEl.style.opacity = '1';
@@ -1833,13 +1915,16 @@ function endMatchAndReveal() {
         stopAutoSimulation();
     }
 
-    // Staggered reveal of mystery tiles: 36 tiles staggered
-    let index = 0;
+    // Filter to only tiles that actually contain a prize
+    const prizeTiles = boardState.filter(s => s.prize !== null);
+    let revealIdx = 0;
     const staggerTime = 40; // ms per tile
     
     function revealNextTile() {
-        if (index < boardState.length) {
-            const square = boardState[index];
+        if (!isGameFinished) return; // guard against reset while revealing
+
+        if (revealIdx < prizeTiles.length) {
+            const square = prizeTiles[revealIdx];
             square.revealed = true;
             
             // Visual feedback: flip animation and hit particles in player color if owned
@@ -1854,7 +1939,7 @@ function endMatchAndReveal() {
             playSound('like');
             renderBoard();
             
-            index++;
+            revealIdx++;
             setTimeout(revealNextTile, staggerTime);
         } else {
             // Reveal finished! Trigger winners list modal
@@ -1862,7 +1947,11 @@ function endMatchAndReveal() {
         }
     }
     
-    revealNextTile();
+    if (prizeTiles.length > 0) {
+        revealNextTile();
+    } else {
+        setTimeout(showWinnersSummary, 800);
+    }
 }
 
 function showWinnersSummary() {
@@ -1882,15 +1971,16 @@ function showWinnersSummary() {
                     prizes: []
                 };
             }
-            playerPrizes[s.ownerName].prizes.push(s.prize);
-            
-            if (s.prize && s.prize.type === 'jackpot') {
-                jackpotWinner = s.ownerName;
+            if (s.prize) {
+                playerPrizes[s.ownerName].prizes.push(s.prize);
+                if (s.prize.type === 'jackpot') {
+                    jackpotWinner = s.ownerName;
+                }
             }
         }
     });
 
-    const winnersArray = Object.values(playerPrizes);
+    const winnersArray = Object.values(playerPrizes).filter(w => w.prizes.length > 0);
     winnersArray.sort((a, b) => {
         const aHasJackpot = a.prizes.some(p => p.type === 'jackpot');
         const bHasJackpot = b.prizes.some(p => p.type === 'jackpot');
@@ -1950,7 +2040,7 @@ function showWinnersSummary() {
 document.addEventListener('DOMContentLoaded', () => {
     initBoard();
     renderBoard();
-    renderShowcaseShelf(PRIZE_POOL);
+    renderShowcaseShelf(activePrizePool);
 
     // Initialize Match Controls
     updateTimerDisplay();
@@ -1967,6 +2057,20 @@ document.addEventListener('DOMContentLoaded', () => {
             updateTimerDisplay();
         }
     });
+
+    const prizeCountInput = document.getElementById('matchPrizesCountInput');
+    if (prizeCountInput) {
+        prizeCountInput.addEventListener('input', (e) => {
+            if (!isTimerRunning && !isGameFinished && !isShuffling) {
+                let count = parseInt(e.target.value) || 10;
+                count = Math.max(1, Math.min(36, count));
+                activePrizePool = buildActivePrizePool(count);
+                renderShowcaseShelf(activePrizePool);
+                shufflePrizes();
+                renderBoard();
+            }
+        });
+    }
 
     document.getElementById('btnCloseModal').addEventListener('click', () => {
         resetMatch();
