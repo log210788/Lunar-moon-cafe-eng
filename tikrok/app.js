@@ -246,7 +246,17 @@ function shufflePrizes() {
     for (let i = 0; i < boardState.length; i++) {
         boardState[i].prize = shuffled[i] || { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' };
         boardState[i].revealed = false;
+        boardState[i].isShuffling = false;
     }
+}
+
+function renderShowcaseShelf(prizes) {
+    const shelfEl = document.getElementById('prizeShowcaseShelf');
+    if (!shelfEl) return;
+    shelfEl.innerHTML = prizes.map((p, idx) => {
+        const rarityClass = `rarity-${p.type}`;
+        return `<div class="showcase-item ${rarityClass}" id="showcase-item-${idx}" title="${p.name}">${p.icon}</div>`;
+    }).join('');
 }
 
 // Init board array: ALL start neutral (empty)
@@ -266,7 +276,8 @@ function initBoard() {
             immuneTimeLeft: 0,
             activeEffect: null,
             prize: null,
-            revealed: false
+            revealed: false,
+            isShuffling: false
         });
     }
     shufflePrizes();
@@ -333,7 +344,7 @@ function renderBoard() {
             sqEl.classList.toggle('selected', square.id === lastTargetId);
             sqEl.classList.toggle('shielded', square.shield > 0);
             sqEl.classList.toggle('immune', square.immune);
-            sqEl.classList.toggle('shuffling-tile', isVisualShuffling);
+            sqEl.classList.toggle('shuffling-tile', square.isShuffling);
 
             // Sync active animation classes
             ['shake', 'takeover-flash', 'under-attack', 'deflected'].forEach(eff => {
@@ -354,7 +365,7 @@ function renderBoard() {
             let prizeBadgeHtml = '';
             if (square.prize) {
                 const prizeIcon = square.revealed ? square.prize.icon : '🎁';
-                const shufflingClass = isVisualShuffling ? 'shuffling' : (square.revealed ? 'revealed' : '');
+                const shufflingClass = square.isShuffling ? 'shuffling' : (square.revealed ? 'revealed' : '');
                 prizeBadgeHtml = `<span class="prize-badge ${shufflingClass}" title="${square.revealed ? square.prize.name : 'Mystery Prize'}">${prizeIcon}</span>`;
             }
 
@@ -1466,32 +1477,41 @@ function startMatchTimer() {
 
     // 1. Enter shuffling & preview state
     isShuffling = true;
-    isVisualShuffling = false;
     updateTimerControlButtons();
 
-    // 2. Assign Ordered (unshuffled) prizes for the showcase
-    for (let i = 0; i < boardState.length; i++) {
-        boardState[i].prize = PRIZE_POOL[i] || { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' };
-        boardState[i].revealed = true;
-    }
+    // 2. Hide all board tiles initially (neutral grey, no revealed prizes)
+    boardState.forEach(s => {
+        s.revealed = false;
+        s.isShuffling = false;
+    });
     renderBoard();
 
-    // 3. Update UI to show showcase preview
+    // 3. Populate showcase shelf with ordered prizes
+    renderShowcaseShelf(PRIZE_POOL);
+    
+    // Smoothly show the showcase shelf
+    const shelfEl = document.getElementById('prizeShowcaseShelf');
+    if (shelfEl) {
+        shelfEl.style.opacity = '1';
+        shelfEl.style.transform = 'translateY(0)';
+    }
+
+    // Update UI to show showcase preview
     const labelEl = document.querySelector('.timer-label');
     if (labelEl) labelEl.textContent = "🔮 INITIAL PRIZES POOL";
-    logActivity("🔮 <b>SHOWCASE:</b> Take a look at this round's prize pool! Shuffling in 2.5 seconds...", "system");
+    logActivity("🔮 <b>SHOWCASE:</b> Take a look at this round's prize pool! Dropping into the board in 2.5s...", "system");
     playSound('shield'); // play reveal-like sound
 
-    // 4. Start visual shuffling after 2.5 seconds showcase
+    // 4. Start visual dropping ceremony after 2.5 seconds showcase
     shuffleTimeout1 = setTimeout(() => {
         if (!isShuffling) return;
 
-        isVisualShuffling = true;
-        if (labelEl) labelEl.textContent = "🎲 SHUFFLING INTO BOARD...";
-        logActivity("🎲 Shuffling prizes into random tiles...", "system");
-        renderBoard(); // apply shuffling classes
+        if (labelEl) labelEl.textContent = "🎲 RAINING PRIZES...";
+        logActivity("🎲 Cascading prizes down onto the hexagons...", "system");
 
-        // Slot machine rolling effect loop
+        const boardEl = document.getElementById('gridBoard');
+
+        // Slot machine rolling effect loop (updates tiles that have landed)
         let tickCount = 0;
         shuffleInterval = setInterval(() => {
             if (!isShuffling) {
@@ -1499,107 +1519,208 @@ function startMatchTimer() {
                 shuffleInterval = null;
                 return;
             }
-            // Play a fast tick sound
-            if (tickCount % 2 === 0) {
-                playSound('like');
-            }
             tickCount++;
 
-            // Randomize icons in the DOM
+            // Randomize icons of currently shuffling tiles in the DOM
             boardState.forEach(s => {
-                const sqEl = document.getElementById(`square-${s.id}`);
-                if (sqEl) {
-                    const badgeEl = sqEl.querySelector('.prize-badge');
-                    if (badgeEl) {
-                        const randomPrize = PRIZE_POOL[Math.floor(Math.random() * PRIZE_POOL.length)];
-                        badgeEl.textContent = randomPrize.icon;
+                if (s.isShuffling) {
+                    const sqEl = document.getElementById(`square-${s.id}`);
+                    if (sqEl) {
+                        const badgeEl = sqEl.querySelector('.prize-badge');
+                        if (badgeEl) {
+                            const randomPrize = PRIZE_POOL[Math.floor(Math.random() * PRIZE_POOL.length)];
+                            badgeEl.textContent = randomPrize.icon;
+                        }
                     }
                 }
             });
         }, 60);
 
-        // 5. Stop shuffling and reveal actual positions after 1.8 seconds of rolling
-        shuffleTimeout2 = setTimeout(() => {
-            if (!isShuffling) {
-                if (shuffleInterval) {
-                    clearInterval(shuffleInterval);
-                    shuffleInterval = null;
-                }
-                return;
-            }
+        // Staggered launch of dropping projectiles
+        let launchedCount = 0;
+        const totalItems = boardState.length;
+        const dropTravelTime = 500; // ms for the flight
 
-            clearInterval(shuffleInterval);
-            shuffleInterval = null;
-            isVisualShuffling = false;
+        function launchNextDrop() {
+            if (!isShuffling) return;
 
-            // Perform actual randomized shuffle
-            shufflePrizes();
-            // Ensure all are revealed
-            boardState.forEach(s => s.revealed = true);
-            renderBoard();
+            if (launchedCount < totalItems) {
+                const i = launchedCount;
+                const square = boardState[i];
+                const prize = PRIZE_POOL[i];
 
-            if (labelEl) labelEl.textContent = "🧠 MEMORIZE POSITIONS!";
-            logActivity("🔮 <b>MEMORIZE:</b> Look closely! Prizes hiding in 2 seconds...", "system");
-            playSound('shield');
-
-            // 6. Stagger hide sweep after 2 seconds
-            shuffleTimeout3 = setTimeout(() => {
-                if (!isShuffling) return;
-
-                if (labelEl) labelEl.textContent = "🎲 HIDING PRIZES...";
-                logActivity("🎲 Hiding the prizes face-down...", "system");
-
-                let index = 0;
-                const staggerTime = 25; // ms per tile
+                // Find elements
+                const showcaseItem = document.getElementById(`showcase-item-${i}`);
                 
-                function hideNextTile() {
+                let startX = 270 - 12;
+                let startY = -45;
+                if (showcaseItem && boardEl) {
+                    const itemRect = showcaseItem.getBoundingClientRect();
+                    const boardRect = boardEl.getBoundingClientRect();
+                    startX = itemRect.left - boardRect.left + itemRect.width / 2 - 12;
+                    startY = itemRect.top - boardRect.top + itemRect.height / 2 - 12;
+                }
+
+                // Calculate target position in hex grid relative to #gridBoard
+                const row = Math.floor(i / GRID_SIZE);
+                const col = i % GRID_SIZE;
+                const destX = col * 82 + (row % 2 === 1 ? 41 : 0) + 40 - 12;
+                const destY = row * 69 + 12 + 46 - 12;
+
+                // Create dropping projectile element
+                const proj = document.createElement('div');
+                proj.className = 'dropping-prize';
+                proj.textContent = prize.icon;
+
+                // Color-code the projectile border/glow based on rarity
+                let prizeColor = 'rgba(255,255,255,0.4)';
+                let prizeGlow = 'rgba(255,255,255,0.2)';
+                if (prize.type === 'jackpot') { 
+                    prizeColor = 'var(--coin-gold)'; 
+                    prizeGlow = 'rgba(245, 158, 11, 0.7)'; 
+                } else if (prize.type === 'major') { 
+                    prizeColor = '#a855f7'; 
+                    prizeGlow = 'rgba(168, 85, 247, 0.7)'; 
+                } else if (prize.type === 'special') { 
+                    prizeColor = '#3b82f6'; 
+                    prizeGlow = 'rgba(59, 130, 246, 0.7)'; 
+                }
+                proj.style.setProperty('--prize-color', prizeColor);
+                proj.style.setProperty('--prize-glow', prizeGlow);
+
+                // Initial position
+                proj.style.left = `${startX}px`;
+                proj.style.top = `${startY}px`;
+                proj.style.transform = 'scale(0.8)';
+                boardEl.appendChild(proj);
+
+                // Fade out showcase item slot
+                if (showcaseItem) showcaseItem.classList.add('flying');
+
+                // Force layout reflow
+                void proj.offsetWidth;
+
+                // Animate to target cell coordinates
+                proj.style.left = `${destX}px`;
+                proj.style.top = `${destY}px`;
+                proj.style.transform = 'scale(1.2) rotate(360deg)';
+
+                // Staggered beep sound during cascading rain
+                if (i % 2 === 0) {
+                    playSound('like');
+                }
+
+                // Handle impact when projectile lands after 500ms
+                setTimeout(() => {
+                    if (!isShuffling) {
+                        proj.remove();
+                        return;
+                    }
+                    proj.remove();
+
+                    // Settle tile temporary prize
+                    square.prize = prize;
+                    square.revealed = true;
+                    square.isShuffling = true;
+                    
+                    playSound('like');
+                    spawnParticles(i, prizeColor);
+                    triggerVisualFX(i, 'takeover-flash');
+                    renderBoard();
+                }, dropTravelTime);
+
+                launchedCount++;
+                // Launch next drop after 40ms stagger
+                shuffleTimeout1 = setTimeout(launchNextDrop, 40);
+            } else {
+                // All items launched! Wait for the last one to land (500ms) + let them cycle for another 800ms
+                shuffleTimeout2 = setTimeout(() => {
                     if (!isShuffling) return;
 
-                    if (index < boardState.length) {
-                        const square = boardState[index];
-                        square.revealed = false;
-                        
-                        // Trigger 3D flip animation
-                        triggerVisualFX(square.id, 'reveal-flip');
-                        
-                        // Play a brief sweep sound effect
-                        if (index % 3 === 0) {
-                            playSound('like');
+                    // Transition to final randomized positions
+                    clearInterval(shuffleInterval);
+                    shuffleInterval = null;
+
+                    // Stop wiggles on all tiles
+                    boardState.forEach(s => s.isShuffling = false);
+
+                    // Perform actual randomized shuffle
+                    shufflePrizes();
+                    // Ensure all are revealed
+                    boardState.forEach(s => s.revealed = true);
+                    renderBoard();
+
+                    if (labelEl) labelEl.textContent = "🧠 MEMORIZE POSITIONS!";
+                    logActivity("🔮 <b>MEMORIZE:</b> Look closely! Prizes hiding in 2 seconds...", "system");
+                    playSound('shield');
+
+                    // Stagger hide sweep after 2.0s
+                    shuffleTimeout3 = setTimeout(() => {
+                        if (!isShuffling) return;
+
+                        // Slide out showcase shelf visually
+                        if (shelfEl) {
+                            shelfEl.style.opacity = '0.3';
                         }
+
+                        if (labelEl) labelEl.textContent = "🎲 HIDING PRIZES...";
+                        logActivity("🎲 Hiding the prizes face-down...", "system");
+
+                        let index = 0;
+                        const staggerTime = 25; // ms per tile
                         
-                        renderBoard();
-                        index++;
-                        shuffleTimeout3 = setTimeout(hideNextTile, staggerTime);
-                    } else {
-                        // Done hiding! Now start the actual countdown timer
-                        isShuffling = false;
-                        isTimerRunning = true;
-                        updateTimerControlButtons();
-                        if (labelEl) labelEl.textContent = "MATCH TIME REMAINING";
-                        logActivity("👍 <b>MATCH ACTIVE!</b> The prizes are hidden. Start liking and attacking to conquer them!", "system");
-                        playSound('nuke-cross'); // start signal
+                        function hideNextTile() {
+                            if (!isShuffling) return;
 
-                        matchTimerInterval = setInterval(() => {
-                            if (matchTimeLeft > 0) {
-                                matchTimeLeft--;
-                                updateTimerDisplay();
+                            if (index < boardState.length) {
+                                const square = boardState[index];
+                                square.revealed = false;
                                 
-                                // Play countdown sound on last 5 seconds
-                                if (matchTimeLeft <= 5 && matchTimeLeft > 0) {
-                                    playSound('like'); // quick beep
+                                // Trigger 3D flip animation
+                                triggerVisualFX(square.id, 'reveal-flip');
+                                
+                                // Play a brief sweep sound effect
+                                if (index % 3 === 0) {
+                                    playSound('like');
                                 }
+                                
+                                renderBoard();
+                                index++;
+                                shuffleTimeout3 = setTimeout(hideNextTile, staggerTime);
                             } else {
-                                clearInterval(matchTimerInterval);
-                                matchTimerInterval = null;
-                                endMatchAndReveal();
-                            }
-                        }, 1000);
-                    }
-                }
+                                // Done hiding! Now start the actual countdown timer
+                                isShuffling = false;
+                                isTimerRunning = true;
+                                updateTimerControlButtons();
+                                if (labelEl) labelEl.textContent = "MATCH TIME REMAINING";
+                                logActivity("👍 <b>MATCH ACTIVE!</b> The prizes are hidden. Start liking and attacking to conquer them!", "system");
+                                playSound('nuke-cross'); // start signal
 
-                hideNextTile();
-            }, 2000);
-        }, 1800);
+                                matchTimerInterval = setInterval(() => {
+                                    if (matchTimeLeft > 0) {
+                                        matchTimeLeft--;
+                                        updateTimerDisplay();
+                                        
+                                        // Play countdown sound on last 5 seconds
+                                        if (matchTimeLeft <= 5 && matchTimeLeft > 0) {
+                                            playSound('like'); // quick beep
+                                        }
+                                    } else {
+                                        clearInterval(matchTimerInterval);
+                                        matchTimerInterval = null;
+                                        endMatchAndReveal();
+                                    }
+                                }, 1000);
+                            }
+                        }
+
+                        hideNextTile();
+                    }, 2000);
+                }, dropTravelTime + 800);
+            }
+        }
+
+        launchNextDrop();
     }, 2500);
 }
 
@@ -1646,6 +1767,18 @@ function resetMatch() {
     
     // Reset board state
     initBoard();
+    
+    // Clear dropping projectiles
+    const droppings = document.querySelectorAll('#gridBoard .dropping-prize');
+    droppings.forEach(d => d.remove());
+
+    // Reset shelf state
+    renderShowcaseShelf(PRIZE_POOL);
+    const shelfEl = document.getElementById('prizeShowcaseShelf');
+    if (shelfEl) {
+        shelfEl.style.opacity = '1';
+        shelfEl.style.transform = 'translateY(0)';
+    }
     
     // Reset active player attacking state
     Object.values(activePlayers).forEach(p => {
@@ -1817,6 +1950,7 @@ function showWinnersSummary() {
 document.addEventListener('DOMContentLoaded', () => {
     initBoard();
     renderBoard();
+    renderShowcaseShelf(PRIZE_POOL);
 
     // Initialize Match Controls
     updateTimerDisplay();

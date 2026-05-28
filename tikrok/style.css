@@ -1600,6 +1600,85 @@ input:checked + .slider:before {
     border-bottom: 1px solid var(--border-glass);
 }
 
+/* Prize Showcase Shelf */
+.prize-showcase-shelf {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-glass);
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+    backdrop-filter: blur(8px);
+    width: 100%;
+    min-height: 64px;
+    align-content: center;
+    box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.02);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+/* Individual Showcase Item Slot */
+.showcase-item {
+    position: relative;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(11, 17, 32, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Color Coding based on Prize Rarity */
+.showcase-item.rarity-jackpot {
+    border-color: var(--coin-gold);
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+.showcase-item.rarity-major {
+    border-color: #a855f7;
+    box-shadow: 0 0 8px rgba(168, 85, 247, 0.4);
+}
+
+.showcase-item.rarity-special {
+    border-color: #3b82f6;
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+}
+
+.showcase-item.rarity-common {
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* When a showcase item is flying, it fades out in the shelf */
+.showcase-item.flying {
+    opacity: 0.15;
+    transform: scale(0.8);
+}
+
+/* Dropping Prize Projectile */
+.dropping-prize {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(11, 17, 32, 0.9);
+    border: 2px solid var(--prize-color, rgba(255, 255, 255, 0.3));
+    box-shadow: 0 0 12px var(--prize-glow, rgba(255, 255, 255, 0.2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 700;
+    transition: left 0.5s cubic-bezier(0.25, 1, 0.5, 1), top 0.5s cubic-bezier(0.25, 1, 0.5, 1), transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
 .timer-label {
     font-size: 10px;
     font-weight: 800;
