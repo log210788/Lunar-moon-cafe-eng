@@ -470,6 +470,7 @@ function renderBoard() {
                     <div class="square-coord"></div>
                     <div class="square-owner"></div>
                     <div class="username-label"></div>
+                    <div class="prize-badge-container"></div>
                     
                     <!-- Hexagonal HUD Perimeter Overlay -->
                     <svg class="hex-hud-svg" viewBox="0 0 80 92">
@@ -490,9 +491,16 @@ function renderBoard() {
 
             // Update DOM text/HTML values selectively
             const coordEl = sqEl.querySelector('.square-coord');
-            const expectedCoordHtml = `${square.coord}${shieldBadgeHtml}${prizeBadgeHtml}`;
+            const expectedCoordHtml = `${square.coord}${shieldBadgeHtml}`;
             if (coordEl.innerHTML !== expectedCoordHtml) {
                 coordEl.innerHTML = expectedCoordHtml;
+            }
+
+            const prizeContainerEl = sqEl.querySelector('.prize-badge-container');
+            if (prizeContainerEl) {
+                if (prizeContainerEl.innerHTML !== prizeBadgeHtml) {
+                    prizeContainerEl.innerHTML = prizeBadgeHtml;
+                }
             }
 
             const avatarHtml = square.ownerName === 'System'
@@ -1683,13 +1691,13 @@ function startMatchTimer() {
                 // Find elements
                 const showcaseItem = document.getElementById(`showcase-item-${i}`);
                 
-                let startX = 270 - 12;
+                let startX = 270 - 16;
                 let startY = -45;
                 if (showcaseItem && boardEl) {
                     const itemRect = showcaseItem.getBoundingClientRect();
                     const boardRect = boardEl.getBoundingClientRect();
-                    startX = itemRect.left - boardRect.left + itemRect.width / 2 - 12;
-                    startY = itemRect.top - boardRect.top + itemRect.height / 2 - 12;
+                    startX = itemRect.left - boardRect.left + itemRect.width / 2 - 16;
+                    startY = itemRect.top - boardRect.top + itemRect.height / 2 - 16;
                 }
 
                 // Calculate target position in hex grid relative to #gridBoard based on its current visual index and chaotic offset
@@ -1697,8 +1705,8 @@ function startMatchTimer() {
                 const visualIdx = targetSquare.visualIndex !== undefined ? targetSquare.visualIndex : targetSquare.id;
                 const visualRow = Math.floor(visualIdx / GRID_SIZE);
                 const visualCol = visualIdx % GRID_SIZE;
-                let destX = visualCol * 82 + (visualRow % 2 === 1 ? 41 : 0) + 40 - 12;
-                let destY = visualRow * 69 + 12 + 46 - 12;
+                let destX = visualCol * 82 + (visualRow % 2 === 1 ? 41 : 0) + 40 - 16;
+                let destY = visualRow * 69 + 12 + 46 - 16;
                 if (targetSquare.isShuffling) {
                     destX += targetSquare.offsetX || 0;
                     destY += targetSquare.offsetY || 0;
