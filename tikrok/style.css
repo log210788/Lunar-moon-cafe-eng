@@ -1736,14 +1736,34 @@ input:checked + .slider:before {
 
 /* Shuffling board tiles vibration and sliding transition */
 .grid-square.shuffling-tile {
-    animation: tileShuffleWiggle 0.3s infinite ease-in-out;
-    transition: left 0.7s cubic-bezier(0.4, 0, 0.2, 1), top 0.7s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    animation: tileShuffleWiggle 0.15s infinite ease-in-out;
+    transition: left 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275), top 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 @keyframes tileShuffleWiggle {
-    0%, 100% { transform: translate(0, 0) rotate(0deg); }
-    25% { transform: translate(1.5px, -1px) rotate(-0.8deg); }
-    75% { transform: translate(-1.5px, 1px) rotate(0.8deg); }
+    0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+    20% { transform: translate(-3px, 2px) rotate(-1.5deg) scale(0.98); }
+    40% { transform: translate(3px, -2px) rotate(1.5deg) scale(1.02); }
+    60% { transform: translate(-2px, -3px) rotate(-1deg) scale(0.97); }
+    80% { transform: translate(2px, 3px) rotate(2deg) scale(1.03); }
+}
+
+/* Custom Prize Icon Image Styling */
+.prize-icon-img {
+    object-fit: contain;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+.showcase-item .prize-icon-img,
+.dropping-prize .prize-icon-img {
+    width: 75%;
+    height: 75%;
+}
+
+.prize-badge .prize-icon-img {
+    width: 16px;
+    height: 16px;
 }
 
 /* Prize Shuffling Slot-Machine Effect */

@@ -176,7 +176,7 @@ let activePrizePool = [];
 
 // Prize Pool definition (36 total items for 6x6 grid)
 const PRIZE_POOL = [
-    { type: 'jackpot', name: 'PlayStation 5 👑', icon: '👑' },
+    { type: 'jackpot', name: 'PlayStation 5 👑', icon: 'https://upload.wikimedia.org/wikipedia/commons/1/1b/PlayStation_5_and_DualSense_with_transparent_background.png' },
     { type: 'major', name: 'Nintendo Switch 🎮', icon: '🎮' },
     { type: 'major', name: 'Steam Game Key 🔑', icon: '🔑' },
     { type: 'special', name: 'Moderator Status ⭐', icon: '⭐' },
@@ -213,6 +213,25 @@ const PRIZE_POOL = [
     { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' },
     { type: 'common', name: 'Better Luck Next Time ☘️', icon: '☘️' }
 ];
+
+// Fisher-Yates shuffle helper to ensure uniform random distributions
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
+    }
+    return array;
+}
+
+// Render prize icon helper (handles emojis and image URLs)
+function renderPrizeIcon(icon) {
+    if (typeof icon === 'string' && (icon.startsWith('http') || icon.includes('.png') || icon.includes('.jpg') || icon.includes('.svg'))) {
+        return `<img src="${icon}" class="prize-icon-img" alt="Prize" />`;
+    }
+    return icon;
+}
 
 // Generate A1, B2 labels from index
 function getCoordLabel(index) {
@@ -271,7 +290,7 @@ function buildActivePrizePool(count) {
     
     // 4. Commons
     const commons = PRIZE_POOL.filter(p => p.type === 'common');
-    const shuffledCommons = [...commons].sort(() => Math.random() - 0.5);
+    const shuffledCommons = shuffleArray([...commons]);
     shuffledCommons.forEach(c => {
         if (activePool.length < count) {
             activePool.push(c);
@@ -295,7 +314,7 @@ function shufflePrizes() {
     }
     activePrizePool = buildActivePrizePool(count);
     
-    const shuffledPrizes = [...activePrizePool].sort(() => Math.random() - 0.5);
+    const shuffledPrizes = shuffleArray([...activePrizePool]);
     
     const indices = [];
     for (let i = 0; i < boardState.length; i++) {
@@ -304,7 +323,7 @@ function shufflePrizes() {
         boardState[i].revealed = false;
         boardState[i].isShuffling = false;
     }
-    indices.sort(() => Math.random() - 0.5);
+    shuffleArray(indices);
     
     for (let j = 0; j < shuffledPrizes.length; j++) {
         const tileIdx = indices[j];
@@ -317,7 +336,7 @@ function renderShowcaseShelf(prizes) {
     if (!shelfEl) return;
     shelfEl.innerHTML = prizes.map((p, idx) => {
         const rarityClass = `rarity-${p.type}`;
-        return `<div class="showcase-item ${rarityClass}" id="showcase-item-${idx}" title="${p.name}">${p.icon}</div>`;
+        return `<div class="showcase-item ${rarityClass}" id="showcase-item-${idx}" title="${p.name}">${renderPrizeIcon(p.icon)}</div>`;
     }).join('');
 }
 
@@ -340,7 +359,9 @@ function initBoard() {
             prize: null,
             revealed: false,
             isShuffling: false,
-            visualIndex: i
+            visualIndex: i,
+            offsetX: 0,
+            offsetY: 0
         });
     }
     shufflePrizes();
@@ -388,8 +409,15 @@ function renderBoard() {
             const visualIdx = square.visualIndex !== undefined ? square.visualIndex : square.id;
             const visualRow = Math.floor(visualIdx / GRID_SIZE);
             const visualCol = visualIdx % GRID_SIZE;
-            const left = visualCol * 82 + (visualRow % 2 === 1 ? 41 : 0);
-            const top = visualRow * 69 + 12;
+            let left = visualCol * 82 + (visualRow % 2 === 1 ? 41 : 0);
+            let top = visualRow * 69 + 12;
+            
+            // Apply chaotic physical offsets during shuffling
+            if (square.isShuffling) {
+                left += square.offsetX || 0;
+                top += square.offsetY || 0;
+            }
+            
             const zIndex = 6 - visualRow;
 
             sqEl.style.left = `${left}px`;
@@ -431,7 +459,7 @@ function renderBoard() {
 
             let prizeBadgeHtml = '';
             if (square.prize) {
-                const prizeIcon = square.revealed ? square.prize.icon : '🎁';
+                const prizeIcon = square.revealed ? renderPrizeIcon(square.prize.icon) : '🎁';
                 const shufflingClass = square.isShuffling ? 'shuffling' : (square.revealed ? 'revealed' : '');
                 prizeBadgeHtml = `<span class="prize-badge ${shufflingClass}" title="${square.revealed ? square.prize.name : 'Mystery Prize'}">${prizeIcon}</span>`;
             }
@@ -1564,7 +1592,7 @@ function startMatchTimer() {
     
     // Choose count random unique tile indices to receive prizes
     const allIndices = Array.from({ length: boardState.length }, (_, idx) => idx);
-    allIndices.sort(() => Math.random() - 0.5);
+    shuffleArray(allIndices);
     const targetTileIndices = allIndices.slice(0, count);
 
     // Populate showcase shelf with active prize pool
@@ -1592,12 +1620,15 @@ function startMatchTimer() {
 
         const boardEl = document.getElementById('gridBoard');
 
-        // Helper to swap coordinates of all hexagons
+        // Helper to swap coordinates of all hexagons and add physical offsets
         function shuffleVisualPositions() {
             const indices = Array.from({ length: boardState.length }, (_, idx) => idx);
-            indices.sort(() => Math.random() - 0.5);
+            shuffleArray(indices);
             boardState.forEach((s, idx) => {
                 s.visualIndex = indices[idx];
+                // Add a small random physical offset (e.g. -15px to +15px) to make it look even more chaotic
+                s.offsetX = (Math.random() - 0.5) * 20;
+                s.offsetY = (Math.random() - 0.5) * 20;
             });
             renderBoard();
         }
@@ -1609,7 +1640,7 @@ function startMatchTimer() {
 
         // Immediately start swirling positions
         shuffleVisualPositions();
-        positionShuffleInterval = setInterval(shuffleVisualPositions, 700);
+        positionShuffleInterval = setInterval(shuffleVisualPositions, 350);
 
         // Slot machine rolling effect loop (updates tiles that have landed)
         let tickCount = 0;
@@ -1629,7 +1660,7 @@ function startMatchTimer() {
                         const badgeEl = sqEl.querySelector('.prize-badge');
                         if (badgeEl) {
                             const randomPrize = activePrizePool[Math.floor(Math.random() * activePrizePool.length)];
-                            badgeEl.textContent = randomPrize.icon;
+                            badgeEl.innerHTML = renderPrizeIcon(randomPrize.icon);
                         }
                     }
                 }
@@ -1638,7 +1669,7 @@ function startMatchTimer() {
 
         // Staggered launch of dropping projectiles (N active prizes)
         let launchedCount = 0;
-        const dropTravelTime = 500; // ms for the flight
+        const dropTravelTime = 300; // ms for the flight (snappy zip down)
 
         function launchNextDrop() {
             if (!isShuffling) return;
@@ -1661,16 +1692,22 @@ function startMatchTimer() {
                     startY = itemRect.top - boardRect.top + itemRect.height / 2 - 12;
                 }
 
-                // Calculate target position in hex grid relative to #gridBoard
-                const row = Math.floor(tileIdx / GRID_SIZE);
-                const col = tileIdx % GRID_SIZE;
-                const destX = col * 82 + (row % 2 === 1 ? 41 : 0) + 40 - 12;
-                const destY = row * 69 + 12 + 46 - 12;
+                // Calculate target position in hex grid relative to #gridBoard based on its current visual index and chaotic offset
+                const targetSquare = boardState[tileIdx];
+                const visualIdx = targetSquare.visualIndex !== undefined ? targetSquare.visualIndex : targetSquare.id;
+                const visualRow = Math.floor(visualIdx / GRID_SIZE);
+                const visualCol = visualIdx % GRID_SIZE;
+                let destX = visualCol * 82 + (visualRow % 2 === 1 ? 41 : 0) + 40 - 12;
+                let destY = visualRow * 69 + 12 + 46 - 12;
+                if (targetSquare.isShuffling) {
+                    destX += targetSquare.offsetX || 0;
+                    destY += targetSquare.offsetY || 0;
+                }
 
                 // Create dropping projectile element
                 const proj = document.createElement('div');
                 proj.className = 'dropping-prize';
-                proj.textContent = prize.icon;
+                proj.innerHTML = renderPrizeIcon(prize.icon);
 
                 // Color-code the projectile border/glow based on rarity
                 let prizeColor = 'rgba(255,255,255,0.4)';
@@ -1710,7 +1747,7 @@ function startMatchTimer() {
                     playSound('like');
                 }
 
-                // Handle impact when projectile lands after 500ms
+                // Handle impact when projectile lands after 300ms
                 setTimeout(() => {
                     if (!isShuffling) {
                         proj.remove();
@@ -1732,7 +1769,7 @@ function startMatchTimer() {
                 // Launch next drop after 40ms stagger
                 shuffleTimeout1 = setTimeout(launchNextDrop, 40);
             } else {
-                // All items launched! Wait for the last one to land (500ms) + cycle for another 1200ms
+                // All items launched! Wait for the last one to land (300ms) + cycle for another 1400ms
                 shuffleTimeout2 = setTimeout(() => {
                     if (!isShuffling) return;
 
@@ -1744,20 +1781,22 @@ function startMatchTimer() {
                         positionShuffleInterval = null;
                     }
 
-                    // Reset all visualIndex back to s.id so they slide home, and stop wiggles
+                    // Reset all visualIndex back to s.id so they slide home, clear offsets, and stop wiggles
                     boardState.forEach(s => {
                         s.visualIndex = s.id;
                         s.isShuffling = false;
+                        s.offsetX = 0;
+                        s.offsetY = 0;
                     });
 
                     // Choose the final target indices where prizes will rest
                     const allIndices = Array.from({ length: boardState.length }, (_, idx) => idx);
-                    allIndices.sort(() => Math.random() - 0.5);
+                    shuffleArray(allIndices);
                     const finalTargetTileIndices = allIndices.slice(0, count);
 
                     // Clear board prizes and assign final shuffled prizes to finalTargetTileIndices
                     boardState.forEach(s => s.prize = null);
-                    const finalShuffledPrizes = [...activePrizePool].sort(() => Math.random() - 0.5);
+                    const finalShuffledPrizes = shuffleArray([...activePrizePool]);
                     
                     for (let k = 0; k < finalTargetTileIndices.length; k++) {
                         const tIdx = finalTargetTileIndices[k];
